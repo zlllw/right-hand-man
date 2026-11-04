@@ -37,3 +37,16 @@ local.properties
 .swp
 ehthumbs.db
 Thumbs.db
+
+# 手信：Python（Bridge 只用标准库，但运行测试会产生 __pycache__）
+__pycache__/
+*.py[cod]
+
+# 手信：桌面端附件收件箱
+.dumate/
+
+# 手信：阶段 0 定制出来的 bootstrap 必须入库。
+# 上游规则里的 `*.zip` 会把 app/src/main/cpp/bootstrap-aarch64.zip 一并忽略，
+# 而契约 A 的 A4 要求产物落在该路径、阶段 7 又要求「第三方按 README 可从零构建」，
+# 因此这里显式取反。
+!app/src/main/cpp/bootstrap-aarch64.zip

@@ -1,0 +1,6 @@
+{"id":1,"event":"text","data":{"delta":"hello "}}
+{"id":2,"event":"text","data":{"delta":"world"}}
+{"id":3,"event":"tool_call","data":{"name":"ls","args":{"path":"~"}}}
+{"id":4,"event":"tool_result","data":{"name":"ls","output":"bin\ndocs\n"}}
+{"id":5,"event":"file","data":{"path":"~/notes.txt","mime":"text/plain","size":12,"url":"/files/notes.txt"}}
+{"id":6,"event":"done","data":{"finishReason":"stop"}}

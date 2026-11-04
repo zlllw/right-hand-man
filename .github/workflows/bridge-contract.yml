@@ -1,0 +1,21 @@
+name: bridge-contract
+
+# 契约 C 的 C8：每个 job 只调 scripts/ 下的脚本，保证 CI 命令 = 本地可复现命令。
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  bridge-contract:
+    name: Bridge 协议契约（契约 B 的 B10 第一段）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: 桌面验收
+        run: bash scripts/verify-stage2.sh
