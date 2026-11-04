@@ -307,7 +307,8 @@ Bridge 启动后把自己的端口写入 `$HOME/.bridge/port`。`ChatRepository`
 7. **新增决策落字**：Bridge 与 opencode 均不加鉴权（含残余风险与可选缓解）；历史由 opencode 持久化；Debug 聊天页先行以解耦阶段 1 与 2/3。
 8. **协议语义钉死**：事件 id 作用域、环形缓冲淘汰、`from` 语义、`done` 后重连窗口、并发串行规则、`finishReason` 取值白名单（契约 B 的 B5）。
 9. **删除不实引用**：v1 第 107 行的"`termux-generator`"未能核实为官方工具，统一改为引用 `termux-packages` 及其 `Building-packages` wiki。
-10. **未决项**：目标包名待确认（建议 `com.zlllw.righthandman`）；`nodejs-lts` 主版本选定与是否打入 `glibc`（原"是否预装 node"已确定必须预装）；B9 两条历史接口待确认。
+10. **未决项**：目标包名待确认（建议 `com.zlllw.righthandman`）；`nodejs-lts` 主版本选定（原"是否预装 node"已确定必须预装；`glibc` 已不再是待定项，见第 14 条）；B9 两条历史接口待确认。
 11. **新增测试与 CI 契约（契约 C）**：确立测试分层 L1–L8、测试依赖预算（新增第三方测试依赖须汇报）、Fake 与契约测试（同一套 `ChatRepositoryContractTest` 同时跑 `FakeChatRepository` 与 `HttpChatRepository`）、Kotlin 与 Python 共用同一批 SSE fixture、Compose 测试规范（Preview 必配、语义节点断言、禁止 `Thread.sleep`）、CI job 结构、各阶段放行条件，以及明确"不可自动化、必须真机手工对拍"的终端行为清单。
 12. **修正 0c 验收**：原"电脑上解压后执行 `python3`"不成立——bootstrap 是 aarch64 的 Android/bionic 产物，桌面与 `qemu` 均无法执行；改为「桌面静态断言（进 CI）+ Android 动态验收（真机，不可替代）」。契约 A 的 A5 与本任务书阶段 0 已同步修正。
 13. **更正 Agent 后端"跑不起来"的错误结论（重要）**：v2 早期依据**一条聚合搜索摘要**断言"opencode 二进制在 Termux/aarch64 上无法运行"，并据此设了 Go/No-Go 闸门。该结论**错误**——`opencode`、`Claude Code`、`Hermes Agent` 三者均可在 Termux 上安装运行。已删除该断言，契约 B 的 B11 改写为三种后端的安装路径、已知坑与驱动接口；阶段 2 先决条件从"能不能跑"改为"装好并确认可被非交互驱动"；阶段 6 从"可选替换后端"升级为"打通 Claude Code / Hermes 两条路径"；§三、§九与契约 A 的 A4 / A7（`nodejs-lts` 必须预装）同步更新。**教训：外部搜索的聚合摘要不得作为架构级结论的唯一依据，架构级判断必须有官方文档或真机实测支撑。**
+14. **更正"需要虚拟环境"的说法**：三种后端（`opencode` / `Claude Code` / `Hermes Agent`）都能在 Termux 原生环境**直接安装**，**不需要 `proot-distro`、不需要额外容器、不需要 Python `venv`**。契约 B 的 B11 已按此改写：opencode 走 `npm install -g opencode-ai` 直装、Claude Code 走 npm 直装、Hermes 走 `pip install hermes-agent` 直装（官方 install 脚本会自建 venv，标注为非必需）。原先作为"候选路径"的 glibc 层与第三方移植降级为**未实测的备选线索**；契约 A 的 A7 同步去掉"是否打入 glibc"的待定项。**连带结论：阶段 5 的 Onboarding 不需要任何"创建环境"步骤。**
