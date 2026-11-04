@@ -33,7 +33,7 @@
 - 写死 `/data/data/com.termux` 的位置**只有** `TermuxConstants.java` 与 `termux-shared/src/main/res/values/strings.xml:12`。
 - bootstrap 由 Gradle 从上游下载并按 hash 校验（`app/build.gradle:167–232`），本地 hash 不符会被删除重下；`clean` 会删除所有 `bootstrap-*.zip`（`:213–214`）。zip 通过 `.incbin` 编入 `libtermux-bootstrap.so`（`app/src/main/cpp/termux-bootstrap-zip.S`）。
 - `TermuxInstaller` **不做任何包名替换**，只按 `SYMLINKS.txt` 建链接，缺该文件直接抛错（`TermuxInstaller.java:163`、`:208`）。
-- Agent 后端：**默认 `opencode`**，运行在 Termux 内。**注意其可运行性风险见契约 B 的 B11——官方二进制目前在 Termux/aarch64 上跑不起来，这是阶段 2 的先决 Go/No-Go。**
+- Agent 后端：**默认 `opencode`**，运行在 Termux 内；`Claude Code` 与 `Hermes Agent` 作为可替换后端。**三者均可在 Termux 上安装运行**，各自的安装路径、已知坑与驱动接口见契约 B 的 B11。
 - 用户已确认：开源发布，接受 GPLv3；仓库私有托管，后续公开。
 
 ## 四、总体架构
@@ -121,7 +121,7 @@ SSE 事件类型：`text` / `tool_call` / `tool_result` / `file` / `error` / `do
 
 ### 阶段 2：Bridge 最小版本 + opencode 适配
 
-**先决条件（Go/No-Go）**：`opencode` 必须先在 Termux 内跑通（契约 B 的 B11）。三条候选路径任选其一并实测 `opencode serve` + `/global/health` 返回 `healthy: true`。**全部失败则停下汇报，不得自行更换后端。**
+**先决条件**：在真机上装好默认后端 `opencode`（安装路径与已知坑见契约 B 的 B11），并确认三件事——能稳定启动（含**第二次**启动）、存在可被 Bridge 驱动的非交互接口、首次交互式步骤已被阶段 5 的 Onboarding 覆盖。验收命令：`opencode serve --hostname 127.0.0.1 --port <free>` 且 `curl /global/health` 返回 `healthy: true`。**若某个后端在你的设备上确实装不上，换用其余两个之一并汇报，不得自行改架构方向。**
 
 **产出**：
 
@@ -187,11 +187,13 @@ SSE 事件类型：`text` / `tool_call` / `tool_result` / `file` / `error` / `do
 
 ---
 
-### 阶段 6：替换 Agent 后端（可选，视工期）
+### 阶段 6：切换到其他后端（Claude Code / Hermes）
 
-**产出**：Bridge 增加第二个适配器（如 `CliAgentAdapter`，`spawn` 用户指定的 CLI 并接管 stdin/stdout）。**Bridge 对 App 的协议完全不变。**
+**产出**：Bridge 增加 `CliAgentAdapter`（`spawn` CLI 并接管 stdin/stdout，或走非交互调用），至少打通 `claude -p "<prompt>"` 与 `hermes` 两条路径；后端选择在配置里显式声明。**Bridge 对 App 的协议完全不变**（契约 B）。
 
-**验收**：用户在引导页显式选择"自定义后端"并填启动命令，ChatScreen 可正常对话；切回 opencode 无需改 App 代码。
+**验收**：用户在引导页显式选择后端（`opencode` / `claude` / `hermes` / 自定义命令），ChatScreen 均可正常对话；切回 `opencode` 无需改 App 代码。
+
+**依据**：三种后端的安装路径与驱动接口见契约 B 的 B11。
 
 ---
 
@@ -271,7 +273,7 @@ Bridge 启动后把自己的端口写入 `$HOME/.bridge/port`。`ChatRepository`
 
 | 风险 | 回退方案 |
 |---|---|
-| **opencode 在 Termux/aarch64 跑不起来** | 见契约 B 的 B11；三条候选路径（proot Debian / 社区移植 / 自行修补）全部失败则停下汇报，由用户决定是否换后端 |
+| **某后端在你的设备上装不通或不稳定** | 见契约 B 的 B11；三种后端（opencode / Claude Code / Hermes）均可安装，换用其余之一并汇报，不得自行改架构方向 |
 | 阶段 0 `python3` 无法启动 | 按 A4→A5 顺序排查：`patchelf` 的 `DT_RUNPATH` → `SSL_CERT_FILE` / `LOCPATH` → `$PREFIX`；全失败则改用 `termux-packages` 自身构建流程重出 bootstrap 并汇报 |
 | 自定义 bootstrap 被构建覆盖 | 检查 `app/build.gradle` 的下载校验与 clean 任务（契约 A 的 A4） |
 | `TerminalView` 在 `AndroidView` 中键盘异常 | 用 1px 隐藏 `EditText` 兜底；仍不行则汇报，不要自行重构终端 |
@@ -299,12 +301,13 @@ Bridge 启动后把自己的端口写入 `$HOME/.bridge/port`。`ChatRepository`
 1. **合并补丁**：v1 末尾的「修改 1/2/3」与「第十节追加一条」已并入正文；删除重复出现的 7.2 段落，硬约束第 3 条与 7.2 的措辞冲突统一为"当前不做 WebView，但界面必须可整体替换"。
 2. **修正交叉引用**：原硬约束第 5 条的"（详见 6.3）" → "（详见 7.1）"；原第九节风险表的"按 6.1 排查顺序" → 指向阶段 0 的排查顺序；全文统一用"阶段 N / §7.x"引用，不再使用"6.x"这类小节编号。
 3. **Agent 后端变更**：从"用户已有的 Python/Node Agent + Claude API 直连"改为"默认 `opencode` + Bridge 协议适配"；阶段 2 随之重写，阶段 5 改为"环境就绪检查 + Agent 配置"，阶段 6 改为"替换后端"。
-4. **新增阶段 2 先决条件（Go/No-Go）**：opencode 在 Termux/aarch64 的可运行性（契约 B 的 B11）。
+4. **阶段 2 先决条件（已修订，见第 13 条）**：原为"opencode 在 Termux/aarch64 的可运行性 Go/No-Go"，该闸门已作废，改为"在真机装好默认后端，并确认可被非交互驱动"（契约 B 的 B11）。
 5. **阶段 0 拆分**：拆为 0a/0b/0c，并补齐 Java/资源侧改包名清单与 bootstrap 构建覆盖问题（契约 A）。
 6. **阶段 1 补前置**：新增"1a Kotlin/Compose 工具链"，并给出 `TermuxActivity` 根视图复用的推荐落点。
 7. **新增决策落字**：Bridge 与 opencode 均不加鉴权（含残余风险与可选缓解）；历史由 opencode 持久化；Debug 聊天页先行以解耦阶段 1 与 2/3。
 8. **协议语义钉死**：事件 id 作用域、环形缓冲淘汰、`from` 语义、`done` 后重连窗口、并发串行规则、`finishReason` 取值白名单（契约 B 的 B5）。
 9. **删除不实引用**：v1 第 107 行的"`termux-generator`"未能核实为官方工具，统一改为引用 `termux-packages` 及其 `Building-packages` wiki。
-10. **未决项**：目标包名待确认（建议 `com.zlllw.righthandman`）；是否随 bootstrap 预装 Node.js（取决于 opencode 安装路径）；B9 两条历史接口待确认。
+10. **未决项**：目标包名待确认（建议 `com.zlllw.righthandman`）；`nodejs-lts` 主版本选定与是否打入 `glibc`（原"是否预装 node"已确定必须预装）；B9 两条历史接口待确认。
 11. **新增测试与 CI 契约（契约 C）**：确立测试分层 L1–L8、测试依赖预算（新增第三方测试依赖须汇报）、Fake 与契约测试（同一套 `ChatRepositoryContractTest` 同时跑 `FakeChatRepository` 与 `HttpChatRepository`）、Kotlin 与 Python 共用同一批 SSE fixture、Compose 测试规范（Preview 必配、语义节点断言、禁止 `Thread.sleep`）、CI job 结构、各阶段放行条件，以及明确"不可自动化、必须真机手工对拍"的终端行为清单。
 12. **修正 0c 验收**：原"电脑上解压后执行 `python3`"不成立——bootstrap 是 aarch64 的 Android/bionic 产物，桌面与 `qemu` 均无法执行；改为「桌面静态断言（进 CI）+ Android 动态验收（真机，不可替代）」。契约 A 的 A5 与本任务书阶段 0 已同步修正。
+13. **更正 Agent 后端"跑不起来"的错误结论（重要）**：v2 早期依据**一条聚合搜索摘要**断言"opencode 二进制在 Termux/aarch64 上无法运行"，并据此设了 Go/No-Go 闸门。该结论**错误**——`opencode`、`Claude Code`、`Hermes Agent` 三者均可在 Termux 上安装运行。已删除该断言，契约 B 的 B11 改写为三种后端的安装路径、已知坑与驱动接口；阶段 2 先决条件从"能不能跑"改为"装好并确认可被非交互驱动"；阶段 6 从"可选替换后端"升级为"打通 Claude Code / Hermes 两条路径"；§三、§九与契约 A 的 A4 / A7（`nodejs-lts` 必须预装）同步更新。**教训：外部搜索的聚合摘要不得作为架构级结论的唯一依据，架构级判断必须有官方文档或真机实测支撑。**
