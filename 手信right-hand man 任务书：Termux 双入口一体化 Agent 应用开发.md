@@ -82,7 +82,7 @@ SSE 事件类型：`text` / `tool_call` / `tool_result` / `file` / `error` / `do
 
 - **0a**：Java/资源侧 6 处改动（`applicationId`、`manifestPlaceholders`、`TermuxConstants`、两处 `strings.xml`、`shortcuts.xml` 的 `targetPackage`）；同时跑 A3 的一致性断言。
 - **0b**：生成含 `python3` + `python-pip` 及依赖闭包的 aarch64 bootstrap，三层路径重写（文本 ~215 个 / patchelf ~307 个 / `SYMLINKS.txt`），产物精确落在 `app/src/main/cpp/bootstrap-aarch64.zip`，并同步修改 `app/build.gradle` 的下载校验任务，禁止其他架构静默沿用未定制 bootstrap。
-- **0c**：电脑解压验收 + 真机 `$PREFIX` 断言。
+- **0c**：分两段——**0c-静态**（桌面只读断言：无 `com.termux` 残留、`SYMLINKS.txt` 合法性、依赖闭包齐全、`readelf` 记录 interpreter 与 `DT_RUNPATH`；可进 CI）+ **0c-动态**（**必须真机**：装 APK 后 `$PREFIX`、`python3 --version`、`import ssl`、`pip list`）。桌面无法执行 aarch64 的 Android/bionic 二进制，**不得用桌面脚本替代动态验收**（论证见契约 C 的 C5）。
 
 **禁止事项**：`0c` 未通过不得进入阶段 1；阶段 0 不得改动硬约束名单中的终端代码；不得改 `namespace` 与 `packageVariant`。
 
@@ -244,18 +244,26 @@ Bridge 启动后把自己的端口写入 `$HOME/.bridge/port`。`ChatRepository`
 
 ## 八、测试策略与 CI
 
-| 层 | 测试方式 | 频率 |
-|---|---|---|
-| Bridge | 电脑上 `python3 server.py` + `curl` + `pytest` | 每次 commit |
-| Compose UI | `FakeChatRepository` + `@Preview` + Compose UI Test | 每次 commit |
-| `HttpChatRepository` | `MockWebServer` 或本地 Bridge | 每次 commit |
-| Bootstrap zip | 电脑上解压 + 执行 0c 验收命令 + A3 一致性断言 | 每次改 bootstrap |
-| Android 集成 | 真机 `adb install -r` 增量包 | 改 TerminalView/Service/导航时 |
-| 完整流程 | `adb shell pm clear` + 重装 | 发版前 |
+**完整测试方案（分层、工具选型与依赖预算、Fake 与契约测试、跨语言 fixture 共享、各阶段放行条件、真机手工对拍清单）见 `docs/契约C-测试与CI.md`。** 本节只保留三条不可让步的原则与放行条件摘要。
 
-**关键**：`BuildConfig.DEBUG` 下提供"Bridge 地址可覆盖"的调试开关，配合 `adb reverse tcp:8765 tcp:8765` 连电脑上的 Bridge。UI 调试不需要真机跑 Bridge。
+1. **协议与逻辑层必须能在桌面 JVM 上完整验证**；UI 测试（Compose，或将来的 WebView）**不得成为协议正确性的唯一保障**。协议的最终裁判是"任意 HTTP/SSE 客户端都能跑通"。
+2. **不为测试修改硬约束名单中的终端代码**；终端行为只测包裹层，其余进真机手工对拍清单（契约 C 的 C6），汇报时如实标注，不得声称已自动化覆盖。
+3. **bootstrap 的动态验收只能在 Android 上做**：bootstrap 是 aarch64 的 Android/bionic 产物，桌面无法加载（`qemu` 也不适用）。桌面侧只做**静态断言**并进 CI，动态部分必须真机。本文件 v2 早期把 0c 写成"电脑上解压后执行 `python3`"，该说法**不成立**，已在契约 A 的 A5 修正。
 
-**CI（仓库已托管在 GitHub，可直接启用）**：把 Bridge 的 `curl` 验收脚本、bootstrap 解压验收脚本、包名一致断言做成 Actions 任务。Bridge 的 `curl` 验收本身就是纯 HTTP 客户端视角，等价于 WebView 分支将来会做的事——只要它全绿，就意味着"任意 HTTP/SSE 客户端"都能对接。
+| 阶段 | 必须通过（详见契约 C 的 C9） |
+|---|---|
+| 0 | 0c-静态（CI）+ 0c-动态（真机）+ 包名残留断言 |
+| 1 | L1 / L3 单测、L5 导航与 Pager 联动 + 终端对拍 |
+| 2 | Bridge 契约测试（契约 B 的 B10 全绿）+ 协议单测 |
+| 3 | L2 / L3 / L4（流式、错误、重连） |
+| 4 | L2 文件接口（含安全边界）+ L4 工具卡 / 文件卡 |
+| 5 | L3 / L4 引导流程 + 真机重装 |
+| 6 | L2 / L3 适配器切换 |
+| 7 | README 从零构建（第三方复现性） |
+
+**关键**：`BuildConfig.DEBUG` 下提供"Bridge 地址可覆盖"的调试开关，配合 `adb reverse tcp:8765 tcp:8765` 连电脑上的 Bridge，UI 调试不需要真机跑 Bridge；该开关必须被 `BuildConfig.DEBUG` 包裹，不得泄漏到 release。
+
+**CI（仓库已托管在 GitHub，可直接启用）**：job 结构见契约 C 的 C8。**每个 job 只调用 `scripts/` 下的脚本**，保证"CI 上跑的命令 = 本地能复现的命令"。Bridge 的 `curl` 验收是纯 HTTP 客户端视角，等价于 WebView 分支将来会做的事——只要它全绿，就意味着"任意 HTTP/SSE 客户端"都能对接。
 
 **每阶段的验收命令落成 `scripts/verify-stageN.sh` 并纳入 CI**，汇报时直接贴 CI 输出。
 
@@ -298,3 +306,5 @@ Bridge 启动后把自己的端口写入 `$HOME/.bridge/port`。`ChatRepository`
 8. **协议语义钉死**：事件 id 作用域、环形缓冲淘汰、`from` 语义、`done` 后重连窗口、并发串行规则、`finishReason` 取值白名单（契约 B 的 B5）。
 9. **删除不实引用**：v1 第 107 行的"`termux-generator`"未能核实为官方工具，统一改为引用 `termux-packages` 及其 `Building-packages` wiki。
 10. **未决项**：目标包名待确认（建议 `com.zlllw.righthandman`）；是否随 bootstrap 预装 Node.js（取决于 opencode 安装路径）；B9 两条历史接口待确认。
+11. **新增测试与 CI 契约（契约 C）**：确立测试分层 L1–L8、测试依赖预算（新增第三方测试依赖须汇报）、Fake 与契约测试（同一套 `ChatRepositoryContractTest` 同时跑 `FakeChatRepository` 与 `HttpChatRepository`）、Kotlin 与 Python 共用同一批 SSE fixture、Compose 测试规范（Preview 必配、语义节点断言、禁止 `Thread.sleep`）、CI job 结构、各阶段放行条件，以及明确"不可自动化、必须真机手工对拍"的终端行为清单。
+12. **修正 0c 验收**：原"电脑上解压后执行 `python3`"不成立——bootstrap 是 aarch64 的 Android/bionic 产物，桌面与 `qemu` 均无法执行；改为「桌面静态断言（进 CI）+ Android 动态验收（真机，不可替代）」。契约 A 的 A5 与本任务书阶段 0 已同步修正。
