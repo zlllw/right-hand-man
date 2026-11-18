@@ -45,8 +45,13 @@ __pycache__/
 # 手信：桌面端附件收件箱
 .dumate/
 
-# 手信：阶段 0 定制出来的 bootstrap 必须入库。
-# 上游规则里的 `*.zip` 会把 app/src/main/cpp/bootstrap-aarch64.zip 一并忽略，
-# 而契约 A 的 A4 要求产物落在该路径、阶段 7 又要求「第三方按 README 可从零构建」，
-# 因此这里显式取反。
+# 手信：阶段 0 定制出来的 bootstrap 必须入库（四架构都要，
+# 因为 assembleDebug 会给每个 ABI 各打一个 APK，缺一个就是坏包）。
+# 上游规则里的 `*.zip` 会把它们一并忽略，而契约 A 的 A4 要求产物落在该路径、
+# 阶段 7 又要求「第三方按 README 可从零构建」，因此这里显式取反。
 !app/src/main/cpp/bootstrap-aarch64.zip
+!app/src/main/cpp/bootstrap-arm.zip
+!app/src/main/cpp/bootstrap-i686.zip
+!app/src/main/cpp/bootstrap-x86_64.zip
+# 上游原件只本地保留，供 rewrite-bootstrap.sh 反复重跑，不入库
+app/src/main/cpp/*.zip.upstream

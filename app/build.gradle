@@ -2,6 +2,12 @@ plugins {
     id "com.android.application"
 }
 
+// 手信：阶段 1a —— Kotlin 与 Compose 工具链。
+// 本项目走旧式 buildscript + classpath（没有 version catalog、也没有 pluginManagement），
+// 插件已经在根 build.gradle 的 buildscript 里，所以这里用 apply plugin 而不是 plugins { id ... version ... }。
+apply plugin: "kotlin-android"
+apply plugin: "org.jetbrains.kotlin.plugin.compose"
+
 ext {
     // The packageVariant defines the bootstrap variant that will be included in the app APK.
     // This must be supported by com.termux.shared.termux.TermuxBootstrap.PackageVariant or app will
@@ -51,8 +57,12 @@ android {
 
         buildConfigField "String", "TERMUX_PACKAGE_VARIANT", "\"" + project.ext.packageVariant + "\"" // Used by TermuxApplication class
 
-        manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.termux"
-        manifestPlaceholders.TERMUX_APP_NAME = "Termux"
+        // 手信：阶段 0a —— 与官方 Termux 并存所需的包名（契约 A 的 A1 第 1 项）。
+        // 本工程原先没有 applicationId，AGP 会退化为用 namespace "com.termux"，必须显式声明。
+        applicationId "com.zlllw.righthandman"
+
+        manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.zlllw.righthandman"
+        manifestPlaceholders.TERMUX_APP_NAME = "手信"
         manifestPlaceholders.TERMUX_API_APP_NAME = "Termux:API"
         manifestPlaceholders.TERMUX_BOOT_APP_NAME = "Termux:Boot"
         manifestPlaceholders.TERMUX_FLOAT_APP_NAME = "Termux:Float"
@@ -142,6 +152,13 @@ android {
 
     buildFeatures {
         buildConfig true
+        compose true
+    }
+
+    // 手信：阶段 1a。现有代码是 Java 8（compileOptions 的 source/target 都是 1.8），
+    // Kotlin 的 jvmTarget 必须与之一致，否则 D8 会因 class 文件 target 不一致报错。
+    kotlinOptions {
+        jvmTarget = "1.8"
     }
 }
 
@@ -149,6 +166,24 @@ dependencies {
     testImplementation "junit:junit:4.13.2"
     testImplementation "org.robolectric:robolectric:4.10"
     coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:1.1.5"
+
+    // 手信：阶段 1a / 3 —— Compose 与网络栈
+    implementation "androidx.activity:activity-compose:1.9.3"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7"
+    implementation "androidx.compose.ui:ui:1.7.8"
+    implementation "androidx.compose.ui:ui-tooling-preview:1.7.8"
+    implementation "androidx.compose.foundation:foundation:1.7.8"
+    implementation "androidx.compose.material3:material3:1.3.1"
+    debugImplementation "androidx.compose.ui:ui-tooling:1.7.8"
+
+    implementation "com.squareup.okhttp3:okhttp:4.12.0"
+    implementation "com.squareup.okhttp3:okhttp-sse:4.12.0"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
+
+    // 手信：契约 C 的 L2 / L3 —— Repository 契约测试与协程测试
+    testImplementation "com.squareup.okhttp3:mockwebserver:4.12.0"
+    testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0"
 }
 
 task versionName {
@@ -220,10 +255,14 @@ task downloadBootstraps() {
         def packageVariant = project.ext.packageVariant
         if (packageVariant == "apt-android-7") {
             def version = "2026.02.12-r1" + "%2B" + "apt.android-7"
-            downloadBootstrap("aarch64", "ea2aeba8819e517db711f8c32369e89e7c52cee73e07930ff91185e1ab93f4f3", version)
-            downloadBootstrap("arm", "a38f4d3b2f735f83be2bf54eff463e86dc32a3e2f9f861c1557c4378d249c018", version)
-            downloadBootstrap("i686", "f5bc0b025b9f3b420b5fcaeefc064f888f5f22a0d6fd7090f4aac0c33eb3555b", version)
-            downloadBootstrap("x86_64", "b7fd0f2e3a4de534be3144f9f91acc768630fc463eaf134ab2e64c545e834f7a", version)
+            // 手信：阶段 0b —— 这四个 zip 已被 scripts/rewrite-bootstrap.sh 重写前缀
+            // （/data/data/com.termux → /data/data/com.zlllw.righthandman）。
+            // 校验值必须同步成本地定制产物的 sha256：downloadBootstrap() 在本地文件 hash
+            // 与 expectedChecksum 不符时会先 file.delete() 再从上游重下（契约 A 的 A4）。
+            downloadBootstrap("aarch64", "91fd16bf1faf91680384c21173f830637467f9516bfe0599f2735c3347b4cc8c", version)
+            downloadBootstrap("arm", "a45476871bf929ade2df7207c3a055b04f3bd6bc33c6c7bce490be9d99a024d3", version)
+            downloadBootstrap("i686", "3eb8481a99adb78d389d382845e12ecf591ae451f5f805bc9059aa08cbf6ba00", version)
+            downloadBootstrap("x86_64", "6d8698a2b7e68fb9bbe689b82abe5cc37bc68757fb58ff146a8388034dc291db", version)
         } else if (packageVariant == "apt-android-5") {
             def version = "2022.04.28-r6" + "+" + packageVariant
             downloadBootstrap("aarch64", "913609d439415c828c5640be1b0561467e539cb1c7080662decaaca2fb4820e7", version)
