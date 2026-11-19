@@ -59,9 +59,9 @@ android {
 
         // 手信：阶段 0a —— 与官方 Termux 并存所需的包名（契约 A 的 A1 第 1 项）。
         // 本工程原先没有 applicationId，AGP 会退化为用 namespace "com.termux"，必须显式声明。
-        applicationId "com.zlllw.righthandman"
+        applicationId "com.rhmapp"
 
-        manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.zlllw.righthandman"
+        manifestPlaceholders.TERMUX_PACKAGE_NAME = "com.rhmapp"
         manifestPlaceholders.TERMUX_APP_NAME = "手信"
         manifestPlaceholders.TERMUX_API_APP_NAME = "Termux:API"
         manifestPlaceholders.TERMUX_BOOT_APP_NAME = "Termux:Boot"
@@ -259,10 +259,10 @@ task downloadBootstraps() {
             // （/data/data/com.termux → /data/data/com.zlllw.righthandman）。
             // 校验值必须同步成本地定制产物的 sha256：downloadBootstrap() 在本地文件 hash
             // 与 expectedChecksum 不符时会先 file.delete() 再从上游重下（契约 A 的 A4）。
-            downloadBootstrap("aarch64", "91fd16bf1faf91680384c21173f830637467f9516bfe0599f2735c3347b4cc8c", version)
-            downloadBootstrap("arm", "a45476871bf929ade2df7207c3a055b04f3bd6bc33c6c7bce490be9d99a024d3", version)
-            downloadBootstrap("i686", "3eb8481a99adb78d389d382845e12ecf591ae451f5f805bc9059aa08cbf6ba00", version)
-            downloadBootstrap("x86_64", "6d8698a2b7e68fb9bbe689b82abe5cc37bc68757fb58ff146a8388034dc291db", version)
+            downloadBootstrap("aarch64", "407ae8f110f1cdf18de1120eb5bbb92068e377d99dec988d507313e2e7c9f0e8", version)
+            downloadBootstrap("arm", "2611624569597729e1b95cc6010dd67f8680a97e22c7214ef3bb9738ca5aeb7b", version)
+            downloadBootstrap("i686", "e488535f442f8b7038020cec07028ded33afee8d22b2b1e604970a65b8f15873", version)
+            downloadBootstrap("x86_64", "79eef8f89a3fcfa09a5f0ab274d79fcb754592d1ac30e0d45b734e52d62f8f17", version)
         } else if (packageVariant == "apt-android-5") {
             def version = "2022.04.28-r6" + "+" + packageVariant
             downloadBootstrap("aarch64", "913609d439415c828c5640be1b0561467e539cb1c7080662decaaca2fb4820e7", version)

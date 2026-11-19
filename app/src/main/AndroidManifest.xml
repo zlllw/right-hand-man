@@ -37,9 +37,13 @@
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
 
+<!-- 手信：bootstrap 安装器要把整个 zip（约 30MB）一次性读成 byte[]，
+         在堆上限较小的环境（低配机、模拟器）会直接 OOM 崩在 JNI 里，
+         因此显式申请大堆。 -->
     <application
         android:name=".app.TermuxApplication"
         android:allowBackup="false"
+        android:largeHeap="true"
         android:banner="@drawable/banner"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/application_name"
@@ -51,8 +55,11 @@
 
 <!-- 手信：默认入口改为 MainActivity（对话 + 终端双 tab）。
              TermuxActivity 保留全部功能，只是不再作为 LAUNCHER。 -->
+        <!-- 注意：必须写全限定名。`android:name=".Foo"` 会按 namespace（这里是 com.termux）
+             展开成 com.termux.Foo，而 MainActivity 的真实类在 com.termux.app 包下，
+             写成 ".MainActivity" 会得到一个不存在的类，应用直接起不来。 -->
         <activity
-            android:name=".MainActivity"
+            android:name="com.termux.app.MainActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|smallestScreenSize|density|screenLayout|keyboard|keyboardHidden|navigation"
             android:label="@string/application_name"
@@ -75,7 +82,7 @@
 
         <!-- 手信：仅 DEBUG 可用的独立聊天页，用于 adb reverse 联调（契约 C 的 C7） -->
         <activity
-            android:name=".DebugChatActivity"
+            android:name="com.termux.app.DebugChatActivity"
             android:exported="false"
             android:label="Debug Chat"
             android:theme="@style/Theme.TermuxActivity.DayNight.NoActionBar"

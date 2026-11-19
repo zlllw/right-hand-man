@@ -24,10 +24,29 @@ fail=0
 note() { printf '%-42s %s\n' "$1" "$2"; }
 is_elf() { [ "$(head -c 4 "$1" | od -An -tx1 | tr -d ' \n')" = "7f454c46" ]; }
 
-# 1) 文本残留必须为 0
-text_residue=$(grep -rl -I "$OLD_DATA" "$WORK" 2>/dev/null | wc -l)
-text_residue=${text_residue:-0}
-[ "$text_residue" -eq 0 ] && note "文本残留（应为 0）" "0 ✓" || { note "文本残留（应为 0）" "$text_residue ✗"; fail=1; }
+# 1) 全树残留必须为 0——包含 ELF/.so 内部的字符串（等长替换后应当一并干净）
+residue=$(python3 - "$WORK" "$OLD_DATA" <<'PY'
+import os
+import sys
+
+root_dir, needle = sys.argv[1], sys.argv[2].encode("ascii")
+hits = 0
+for root, _dirs, files in os.walk(root_dir):
+    for name in files:
+        path = os.path.join(root, name)
+        if os.path.islink(path):
+            continue
+        try:
+            with open(path, "rb") as handle:
+                if needle in handle.read():
+                    hits += 1
+        except OSError:
+            pass
+print(hits)
+PY
+)
+residue=${residue:-0}
+[ "$residue" -eq 0 ] && note "全树残留（含二进制，应为 0）" "0 ✓" || { note "全树残留（含二进制，应为 0）" "$residue ✗"; fail=1; }
 
 # 2) SYMLINKS.txt 必须存在，且目标前缀已是新包名
 if [ -s "$WORK/SYMLINKS.txt" ]; then
