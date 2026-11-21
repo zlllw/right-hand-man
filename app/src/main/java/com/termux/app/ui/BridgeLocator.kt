@@ -1,5 +1,6 @@
 package com.termux.app.ui
 
+import com.termux.shared.termux.TermuxConstants
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.io.File
@@ -19,11 +20,18 @@ object BridgeLocator {
         if (!explicit.isNullOrBlank()) {
             return explicit.toHttpUrlOrNull()
         }
-        val home = System.getenv("HOME") ?: return null
-        val portFile = File(home, ".bridge/port")
-        if (!portFile.isFile) return null
-        val port = portFile.readText().trim().toIntOrNull() ?: return null
-        if (port !in 1..65535) return null
+        val port = readPort() ?: return null
         return "http://127.0.0.1:$port".toHttpUrlOrNull()
+    }
+
+    /**
+     * 不能用 `System.getenv("HOME")`：Android 应用进程的环境变量里没有 HOME，
+     * 那样永远读不到端口文件。必须按包名算出 Termux 的 `$HOME`。
+     */
+    fun readPort(): Int? {
+        val portFile = File(TermuxConstants.TERMUX_HOME_DIR_PATH, ".bridge/port")
+        if (!portFile.isFile) return null
+        val port = runCatching { portFile.readText().trim().toInt() }.getOrNull() ?: return null
+        return port.takeIf { it in 1..65535 }
     }
 }

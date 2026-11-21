@@ -13,13 +13,24 @@ package com.termux.app.chat
 object Json {
 
     fun parseObject(text: String): Map<String, Any?> {
+        val value = parseAny(text)
+        @Suppress("UNCHECKED_CAST")
+        return value as? Map<String, Any?> ?: throw IllegalArgumentException("载荷不是 JSON 对象")
+    }
+
+    fun parseArray(text: String): List<Any?> {
+        val value = parseAny(text)
+        @Suppress("UNCHECKED_CAST")
+        return value as? List<Any?> ?: throw IllegalArgumentException("载荷不是 JSON 数组")
+    }
+
+    private fun parseAny(text: String): Any? {
         val parser = Parser(text)
         parser.skipWhitespace()
         val value = parser.readValue()
         parser.skipWhitespace()
         require(parser.atEnd()) { "JSON 末尾有多余内容，位置 ${parser.position}" }
-        @Suppress("UNCHECKED_CAST")
-        return value as? Map<String, Any?> ?: throw IllegalArgumentException("载荷不是 JSON 对象")
+        return value
     }
 
     fun string(source: Map<String, Any?>, key: String, fallback: String = ""): String =
@@ -35,6 +46,16 @@ object Json {
     fun map(source: Map<String, Any?>, key: String): Map<String, Any?> {
         @Suppress("UNCHECKED_CAST")
         return source[key] as? Map<String, Any?> ?: emptyMap()
+    }
+
+    fun maps(source: Map<String, Any?>, key: String): List<Map<String, Any?>> {
+        @Suppress("UNCHECKED_CAST")
+        return (source[key] as? List<Any?>).orEmpty().filterIsInstance<Map<String, Any?>>()
+    }
+
+    fun mapArray(items: List<Any?>): List<Map<String, Any?>> {
+        @Suppress("UNCHECKED_CAST")
+        return items.filterIsInstance<Map<String, Any?>>()
     }
 
     private class Parser(private val text: String) {

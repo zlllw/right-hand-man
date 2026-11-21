@@ -45,8 +45,26 @@ class DebugChatActivity : AppCompatActivity() {
                     val state by viewModel.state.collectAsState()
                     ChatScreen(
                         state = state,
-                        bridgeConnected = endpoint != null,
-                        onSend = viewModel::send
+                        bridgeNotice = if (endpoint != null) {
+                            null
+                        } else {
+                            "未连接 Bridge：用 `adb reverse tcp:8765 tcp:8765` 或先启动本机 Bridge"
+                        },
+                        onSend = viewModel::send,
+                        onNewConversation = viewModel::newConversation,
+                        onOpenConversation = viewModel::openConversation,
+                        onRequestHistory = viewModel::loadConversations,
+                        onUpload = viewModel::attach,
+                        onRemoveAttachment = viewModel::removeAttachment,
+                        onRenameConversation = viewModel::renameConversation,
+                        onDeleteConversation = viewModel::deleteConversation,
+                        onStop = viewModel::stop,
+                        onRequestFiles = viewModel::loadFiles,
+                        onDownloadFile = { file -> viewModel.saveToDownloads(this, file.name) },
+                        onDeleteFile = viewModel::deleteFile,
+                        onPreviewFile = viewModel::previewFile,
+                        onClosePreview = viewModel::closePreview,
+                        onAttachExisting = viewModel::attachExisting
                     )
                 }
             }

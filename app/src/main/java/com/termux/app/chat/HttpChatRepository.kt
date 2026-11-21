@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -96,6 +97,160 @@ class HttpChatRepository(
         val source = EventSources.createFactory(client).newEventSource(request, listener)
         awaitClose { source.cancel() }
     }
+
+    override suspend fun listConversations(): List<ConversationSummary> = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url(baseUrl.newBuilder().addPathSegments("conversations").build())
+            .get()
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("GET /conversations 失败：HTTP ${response.code}")
+            Json.mapArray(Json.parseArray(response.body?.string().orEmpty())).map { item ->
+                ConversationSummary(
+                    conversationId = Json.string(item, "conversationId"),
+                    title = Json.string(item, "title"),
+                    updatedAt = Json.long(item, "updatedAt")
+                )
+            }
+        }
+    }
+
+    override suspend fun conversationMessages(conversationId: String, limit: Int): List<HistoryMessage> =
+        withContext(Dispatchers.IO) {
+            val request = Request.Builder()
+                .url(
+                    baseUrl.newBuilder()
+                        .addPathSegments("conversations")
+                        .addPathSegment(conversationId)
+                        .addPathSegment("messages")
+                        .addQueryParameter("limit", limit.toString())
+                        .build()
+                )
+                .get()
+                .build()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) throw IOException("GET messages 失败：HTTP ${response.code}")
+                Json.mapArray(Json.parseArray(response.body?.string().orEmpty())).map { item ->
+                    HistoryMessage(
+                        role = Json.string(item, "role"),
+                        text = Json.string(item, "text"),
+                        ts = (item["ts"] as? Double)?.toLong() ?: 0L
+                    )
+                }
+            }
+        }
+
+    override suspend fun renameConversation(conversationId: String, title: String) =
+        withContext(Dispatchers.IO) {
+            val request = Request.Builder()
+                .url(
+                    baseUrl.newBuilder()
+                        .addPathSegments("conversations")
+                        .addPathSegment(conversationId)
+                        .build()
+                )
+                .patch("{\"title\":${quote(title)}}".toRequestBody(jsonMediaType))
+                .build()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw IOException("PATCH /conversations 失败：HTTP ${response.code}")
+                }
+            }
+        }
+
+    override suspend fun deleteConversation(conversationId: String) =
+        withContext(Dispatchers.IO) {
+            val request = Request.Builder()
+                .url(
+                    baseUrl.newBuilder()
+                        .addPathSegments("conversations")
+                        .addPathSegment(conversationId)
+                        .build()
+                )
+                .delete()
+                .build()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw IOException("DELETE /conversations 失败：HTTP ${response.code}")
+                }
+            }
+        }
+
+    override suspend fun abort(requestId: String) = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url(baseUrl.newBuilder().addPathSegments("abort").build())
+            .post("{\"requestId\":${quote(requestId)}}".toRequestBody(jsonMediaType))
+            .build()
+        runCatching { client.newCall(request).execute().use { it.isSuccessful } }
+        Unit
+    }
+
+    override suspend fun downloadFile(name: String): ByteArray = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url(baseUrl.newBuilder().addPathSegments("files").addPathSegment(name).build())
+            .get()
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("GET /files/{name} 失败：HTTP ${response.code}")
+            response.body?.bytes() ?: ByteArray(0)
+        }
+    }
+
+    override suspend fun deleteFile(name: String) = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url(baseUrl.newBuilder().addPathSegments("files").addPathSegment(name).build())
+            .delete()
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("DELETE /files/{name} 失败：HTTP ${response.code}")
+        }
+    }
+
+    override suspend fun listFiles(): List<WorkspaceFile> = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url(baseUrl.newBuilder().addPathSegments("files").build())
+            .get()
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("GET /files 失败：HTTP ${response.code}")
+            val payload = Json.parseObject(response.body?.string().orEmpty())
+            Json.maps(payload, "files").map { item ->
+                WorkspaceFile(
+                    name = Json.string(item, "name"),
+                    size = Json.long(item, "size"),
+                    mime = Json.string(item, "mime", "application/octet-stream")
+                )
+            }
+        }
+    }
+
+    override suspend fun uploadFile(filename: String, bytes: ByteArray): UploadedFile =
+        withContext(Dispatchers.IO) {
+            val body = MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart(
+                    "file",
+                    filename,
+                    bytes.toRequestBody("application/octet-stream".toMediaType())
+                )
+                .build()
+            val request = Request.Builder()
+                .url(baseUrl.newBuilder().addPathSegments("files").build())
+                .post(body)
+                .build()
+            client.newCall(request).execute().use { response ->
+                val text = response.body?.string().orEmpty()
+                if (!response.isSuccessful) {
+                    throw IOException("上传失败：HTTP ${response.code} $text")
+                }
+                val payload = Json.parseObject(text)
+                UploadedFile(
+                    name = Json.string(payload, "name"),
+                    path = Json.string(payload, "path"),
+                    size = Json.long(payload, "size")
+                )
+            }
+        }
 
     private fun quote(value: String): String = buildString {
         append('"')
