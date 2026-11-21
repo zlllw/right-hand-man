@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN" data-mode="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>手信 · 顶栏样式对比</title>
+<style>
+:root{--font:Inter,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;font-family:var(--font);font-synthesis:none}
+html[data-mode="light"]{--bg:#f5f5f8;--surface:#fff;--surface-2:#f3f3f7;--ink:#1d1e26;--ink-2:#4b4d59;--muted:#7c7e8c;--faint:#a7a9b5;--line:#e8e8ef;--line-strong:#d8d9e2;--accent:#5a5bd5;--accent-ink:#fff;--accent-soft:#ecebfb;--glass-bg:rgba(255,255,255,.72);--glass-line:rgba(24,26,44,.08);--page:radial-gradient(1100px 700px at 70% -10%,#fff 0%,#eceef4 55%,#e6e8ef 100%);color-scheme:light}
+html[data-mode="dark"]{--bg:#0f0f13;--surface:#17171c;--surface-2:#1f1f26;--ink:#ededf2;--ink-2:#c2c3ce;--muted:#8f91a0;--faint:#63656f;--line:#26262f;--line-strong:#33343f;--accent:#9a98ff;--accent-ink:#12122a;--accent-soft:#262446;--glass-bg:rgba(30,30,38,.66);--glass-line:rgba(255,255,255,.08);--page:radial-gradient(1100px 700px at 70% -10%,#18181f 0%,#0d0d11 55%,#0a0a0d 100%);color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);min-height:100vh;padding:28px 22px 60px}
+button{font:inherit;cursor:pointer;border:0;color:inherit;background:none}
+svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;max-width:1180px;margin:0 auto 26px;flex-wrap:wrap}
+.page-head h1{font-size:24px;margin:0 0 6px;letter-spacing:-.4px}
+.page-head p{font-size:12px;color:var(--muted);margin:0;line-height:1.8}
+.seg{display:flex;gap:2px;padding:4px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
+.seg button{width:34px;height:32px;border-radius:999px;display:grid;place-items:center;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+.seg svg{width:16px;height:16px}
+section{max-width:1180px;margin:0 auto 34px}
+section h2{font-size:14px;margin:0 0 4px}
+section h2 small{font-size:11px;color:var(--muted);font-weight:400;margin-left:8px}
+section>p{font-size:11px;color:var(--muted);margin:0 0 16px;line-height:1.8}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px}
+.spec{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:12px;margin:0}
+.spec figcaption{display:flex;align-items:baseline;gap:8px;font-size:11px;color:var(--muted);padding:2px 4px 10px}
+.spec figcaption b{font-size:12px;color:var(--ink);font-weight:600}
+.spec figcaption .tag{margin-left:auto;font-size:9px;padding:3px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+.canvas{background:var(--bg);border-radius:14px;padding:12px 10px 14px}
+.status{height:22px;padding:4px 14px 0;display:flex;justify-content:space-between;align-items:center;font-size:9px;font-weight:700;color:var(--ink)}
+.battery{width:17px;height:8px;border:1px solid currentColor;border-radius:2px;padding:1px;position:relative}
+.battery:before{content:"";display:block;height:100%;width:80%;background:currentColor;border-radius:1px}
+.battery:after{content:"";position:absolute;right:-3px;top:1.5px;height:3px;border-right:2px solid currentColor}
+.hdr{display:flex;align-items:center;gap:6px;padding:5px 8px;margin:3px 10px 6px;border:1px solid var(--glass-line);border-radius:18px;background:var(--glass-bg);box-shadow:0 4px 16px rgba(0,0,0,.06);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);height:58px}
+.ib{width:38px;height:38px;display:grid;place-items:center;border-radius:12px;color:var(--ink-2);flex:none;position:relative}
+.ib.new{color:var(--accent)}
+.ttl{flex:1;min-width:0;padding:0 4px;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge{position:absolute;top:1px;right:0;min-width:15px;height:15px;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-size:8px;font-weight:650;line-height:1;display:grid;place-items:center;padding:0 3px;border:2px solid var(--surface)}
+.ctx{font-size:11px;color:var(--muted);padding:8px 18px 2px;line-height:1.8}
+.h46{height:46px;padding:3px 6px}
+.h46 .ib{width:34px;height:34px}
+.h52{height:52px}
+.h58{height:58px}
+.h64{height:64px}
+.f-border .ib{border:1px solid var(--line);border-radius:10px;width:32px;height:32px;background:transparent}
+.f-soft .ib{border-radius:10px;width:32px;height:32px;background:var(--surface-2)}
+.f-both .ib{border:1px solid var(--line);border-radius:10px;width:32px;height:32px;background:var(--surface-2)}
+.note{font-size:10px;color:var(--muted);line-height:1.9;padding:8px 4px 0;margin:0}
+.big{max-width:520px}
+.big .canvas{padding:16px 12px 18px}
+.big .hdr{height:52px;margin:4px 12px 8px}
+</style>
+</head>
+<body>
+<div class="page-head">
+  <div>
+    <h1>顶栏样式对比</h1>
+    <p>上排：高度；下排：图标外框（固定在 52px 高度）。挑一个组合，我回主 demo 应用。</p>
+  </div>
+  <div class="seg" id="mode-seg" role="group" aria-label="颜色模式">
+    <button data-mode="light" aria-label="浅色"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.8v2.4M12 18.8v2.4M4.3 4.3l1.7 1.7M18 18l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.3 19.7 6 18M18 6l1.7-1.7"/></svg></button>
+    <button data-mode="dark" aria-label="深色"><svg viewBox="0 0 24 24"><path d="M20.2 13.6A8.6 8.6 0 1 1 10.4 3.8a7.1 7.1 0 0 0 9.8 9.8Z"/></svg></button>
+    <button data-mode="system" aria-label="跟随系统"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.6" width="17" height="12.4" rx="2"/><path d="M12 17v2.6M8.6 19.6h6.8"/></svg></button>
+  </div>
+</div>
+<section>
+  <h2>一、顶栏高度<small>图标不带外框</small></h2>
+  <p>手机上的顶栏通常 44–64px。越高越松弛，但会挤压聊天区。</p>
+  <div class="grid" id="heights"></div>
+</section>
+<section>
+  <h2>二、图标外框<small>高度固定 52px</small></h2>
+  <p>给图标加一层淡外框，让左右两端成组、视觉更整齐；外框与磨砂胶囊的描边语言呼应。</p>
+  <div class="grid" id="frames"></div>
+</section>
+<section>
+  <h2>三、推荐组合<small>52px + 描边淡底</small></h2>
+  <div class="spec big">
+    <div class="canvas"><div class="status"><span>9:41</span><span class="battery"></span></div><div class="hdr f-both"><span class="ib i-menu"></span><span class="ttl">整理本周的项目资料</span><span class="ib i-folder"></span><span class="ib new i-edit"></span></div><div class="ctx">左右图标有框、标题居中留白，和底部磨砂 dock 形成一套材质。</div></div>
+    <p class="note">原因：52px 比当前 58px 收紧一档；图标 32px 加细框不显笨重；外框半径 10 与 dock 内按钮 16 的层级区分清楚。</p>
+  </div>
+</section>
+<script>
+'use strict';
+const icons={
+  menu:'<svg viewBox="0 0 24 24"><rect x="3.2" y="4.6" width="17.6" height="14.8" rx="3"/><path d="M9.4 4.6v14.8"/></svg>',
+  folder:'<svg viewBox="0 0 24 24"><path d="M3.5 7.8V6.3a1.6 1.6 0 0 1 1.6-1.6h4.3l2.1 2.6h7.4a1.6 1.6 0 0 1 1.6 1.6v8.8a1.6 1.6 0 0 1-1.6 1.6H5.1a1.6 1.6 0 0 1-1.6-1.6V7.8Z"/></svg>',
+  edit:'<svg viewBox="0 0 24 24"><path d="M13.6 5.2H6.4a1.9 1.9 0 0 0-1.9 1.9v10.5a1.9 1.9 0 0 0 1.9 1.9h10.5a1.9 1.9 0 0 0 1.9-1.9v-7.2"/><path d="M17.3 3.6a2 2 0 0 1 2.9 2.9l-8.1 8.1-3.7 1 1-3.7 7.9-8.3Z"/></svg>'
+};
+function header(cls){return `<div class="canvas"><div class="status"><span>9:41</span><span class="battery"></span></div><div class="hdr ${cls}"><span class="ib">${icons.menu}</span><span class="ttl">整理本周的项目资料</span><span class="ib">${icons.folder}<span class="badge">3</span></span><span class="ib new">${icons.edit}</span></div><div class="ctx">看完了。文件和历史两条线都能先做…</div></div>`;}
+document.getElementById('heights').innerHTML=[['h46','46px','紧凑，图标缩小到 34px'],['h52','52px','偏紧凑，接近系统导航栏'],['h58','58px','当前版本'],['h64','64px','最松弛，占用聊天空间']].map(([c,n,d])=>`<figure class="spec"><figcaption><b>${n}</b><span>${d}</span>${c==='h58'?'<span class="tag">当前</span>':''}</figcaption>${header(c)}</figure>`).join('');
+document.getElementById('frames').innerHTML=[['','无外框','当前：只有悬停底色'],['f-border','细描边','1px 描边，无填充'],['f-soft','淡底','surface-2 填充，无描边'],['f-both','描边 + 淡底','两者组合，材质感最强']].map(([c,n,d])=>`<figure class="spec"><figcaption><b>${n}</b><span>${d}</span>${c===''?'<span class="tag">当前</span>':''}</figcaption>${header(c)}</figure>`).join('');
+/* 外观切换 */
+const mq=matchMedia('(prefers-color-scheme: dark)');
+let mode='system';
+function apply(){const resolved=mode==='system'?(mq.matches?'dark':'light'):mode;document.documentElement.dataset.mode=resolved;document.querySelectorAll('#mode-seg [data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===mode)));}
+document.querySelectorAll('#mode-seg [data-mode]').forEach(b=>b.addEventListener('click',()=>{mode=b.dataset.mode;apply();}));
+mq.addEventListener?.('change',()=>{if(mode==='system')apply();});
+apply();
+</script>
+</body>
+</html>

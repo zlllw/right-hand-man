@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="zh-CN" data-page="dark" data-safe="off">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>手信 · 应用图标方案 v3</title>
+<link rel="stylesheet" href="assets/mark-masks.css">
+<style>
+:root{
+  --font:Inter,"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --page:#0c0d10;--panel:#131418;--panel-2:#191a1f;--line:rgba(255,255,255,.08);
+  --ink:#eceef2;--ink2:#c3c6cf;--muted:#8b8e99;
+  --accent:#6ea8ff;--accent-soft:rgba(110,168,255,.14);
+  color-scheme:dark;
+}
+html[data-page="light"]{
+  --page:#eef0f4;--panel:#fff;--panel-2:#f5f6f9;--line:#e5e7ee;
+  --ink:#171921;--ink2:#3c3f4a;--muted:#6c707c;
+  --accent:#2563eb;--accent-soft:rgba(37,99,235,.10);
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;padding:26px 22px 90px;min-height:100vh;
+  font-family:var(--font);font-synthesis:none;color:var(--ink);
+  background:
+    radial-gradient(1000px 560px at 70% -8%,rgba(255,255,255,.05),transparent 60%),
+    radial-gradient(800px 500px at 8% 110%,rgba(110,168,255,.05),transparent 60%),
+    var(--page);
+}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+code{font-family:ui-monospace,Consolas,monospace;font-size:.92em}
+
+.icon{
+  position:relative;overflow:hidden;background:#101116;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.28),inset 0 0 0 1px rgba(0,0,0,.10),0 14px 34px rgba(0,0,0,.38);
+  flex:none;
+}
+.icon.big{width:176px;height:176px;border-radius:26%}
+.icon.shape{width:52px;height:52px}
+.icon.circle{border-radius:50%}
+.icon.squircle{border-radius:26%}
+.icon.rounded{border-radius:18%}
+.icon.tiny{width:38px;height:38px;border-radius:26%}
+.icon.shape,.icon.tiny{box-shadow:inset 0 0 0 1px rgba(0,0,0,.10),0 5px 14px rgba(0,0,0,.30)}
+
+.glyph{position:absolute;display:block;
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+  -webkit-mask-position:center;mask-position:center;
+  -webkit-mask-size:contain;mask-size:contain;
+  filter:drop-shadow(0 1.5px 3px rgba(0,0,0,.20));
+}
+.g-mark{aspect-ratio:137/74}
+.g-hand{aspect-ratio:46/74}
+.g-sin{aspect-ratio:68/74}
+
+.prompt{position:absolute;height:auto;overflow:visible;filter:drop-shadow(0 1.5px 3px rgba(0,0,0,.18))}
+
+.safe{position:absolute;inset:0;display:none;pointer-events:none}
+html[data-safe="on"] .icon.big .safe{display:block}
+.safe::before{content:"";position:absolute;left:50%;top:50%;width:61.1%;aspect-ratio:1;
+  transform:translate(-50%,-50%);border:1.5px dashed #fff;border-radius:50%;mix-blend-mode:difference}
+.safe::after{content:"safe 66dp";position:absolute;left:50%;bottom:4px;transform:translateX(-50%);
+  font-size:8px;letter-spacing:.04em;color:rgba(255,255,255,.45);white-space:nowrap}
+
+.head{max-width:1180px;margin:0 auto 22px;display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap}
+.head h1{margin:0 0 6px;font-size:24px;letter-spacing:-.4px}
+.head h1 small{font-size:11px;color:var(--muted);font-weight:400;margin-left:8px;letter-spacing:0}
+.head p{margin:0;font-size:12px;line-height:1.9;color:var(--muted);max-width:680px}
+.controls{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.ctl{display:flex;align-items:center;gap:8px}
+.ctl .lbl{font-size:11px;color:var(--muted)}
+.seg{display:flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:999px;background:var(--panel)}
+.seg button{height:30px;padding:0 12px;border-radius:999px;font-size:11px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+.switch{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted);cursor:pointer;user-select:none}
+.switch input{appearance:none;width:32px;height:18px;border-radius:999px;background:var(--panel-2);
+  border:1px solid var(--line);position:relative;cursor:pointer;transition:background .15s}
+.switch input::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;
+  background:var(--muted);transition:transform .15s,background .15s}
+.switch input:checked{background:var(--accent-soft);border-color:transparent}
+.switch input:checked::after{transform:translateX(14px);background:var(--accent)}
+
+.grid{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(296px,1fr));gap:16px}
+.card{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:12px;
+  cursor:pointer;outline:none;transition:border-color .15s,box-shadow .15s;position:relative}
+.card:hover{border-color:color-mix(in srgb,var(--accent) 38%,var(--line))}
+.card:focus-visible{box-shadow:0 0 0 2px var(--accent)}
+.card[data-picked="1"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 10px 30px rgba(0,0,0,.18)}
+.stage{display:flex;flex-direction:column;align-items:center;gap:14px;
+  background:radial-gradient(120% 100% at 50% 0%,var(--panel-2),var(--panel));
+  border:1px solid var(--line);border-radius:15px;padding:20px 12px 16px}
+.shapes{display:flex;align-items:center;gap:9px}
+.cap{display:flex;align-items:baseline;gap:8px;padding:12px 6px 4px;flex-wrap:wrap}
+.cap b{font-size:12.5px;letter-spacing:-.1px}
+.cap span{font-size:11px;color:var(--muted);line-height:1.5}
+.pick{position:absolute;top:14px;right:14px;font-size:9px;font-weight:650;letter-spacing:.06em;
+  padding:4px 9px;border-radius:999px;background:var(--accent);color:#0a0c10;opacity:0;transform:scale(.9);
+  transition:opacity .15s,transform .15s;pointer-events:none}
+.card[data-picked="1"] .pick{opacity:1;transform:scale(1)}
+.note-row{max-width:1180px;margin:16px auto 0;font-size:11px;color:var(--muted);line-height:1.9}
+
+.bar-status{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);display:none;
+  align-items:center;gap:10px;padding:9px 16px;border-radius:999px;
+  background:var(--panel);border:1px solid var(--line);box-shadow:0 12px 34px rgba(0,0,0,.35);
+  font-size:12px;color:var(--ink2);white-space:nowrap;z-index:9}
+.bar-status[data-show="1"]{display:flex}
+.bar-status b{color:var(--accent)}
+
+footer{max-width:1180px;margin:26px auto 0;font-size:11px;line-height:2;color:var(--muted)}
+footer ul{margin:0;padding-left:16px}
+footer a{color:var(--accent);text-decoration:none}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <div>
+    <h1>应用图标方案 <small>v3 · 纯色底</small></h1>
+    <p>沿用 E 的分屏：上半纯白、下半纯黑、中间一条科技蓝接缝。<b>只保留甲骨文「手」</b>，
+       放在画面正中；跨越接缝时上半用墨色、下半用白色，两段都清楚。「信」已去掉。</p>
+  </div>
+  <div class="controls">
+    <div class="ctl">
+      <span class="lbl">页面</span>
+      <div class="seg" id="seg-page">
+        <button data-v="dark" aria-pressed="true">深</button>
+        <button data-v="light" aria-pressed="false">浅</button>
+      </div>
+    </div>
+    <label class="switch"><input type="checkbox" id="safe-toggle"> 安全区</label>
+  </div>
+</div>
+
+<main class="grid" id="grid"></main>
+<p class="note-row" id="note-row">悬停或点卡片即可选中。C 是纯字方案，其余都带一条小提示符。</p>
+
+<footer>
+  <ul>
+    <li>分屏比例：白 56% / 蓝缝 3% / 黑 41%，与上一版 E 一致；没有渐变，全部是纯色块。</li>
+    <li>「手」在接缝处的双色切换按 57.5% 切线，正好落在蓝缝上，不会出现灰色过渡带。</li>
+    <li>纯色底方案（D/E/F）没有接缝，手整体一色，缩到 38px 更稳。</li>
+    <li>上一版在 <a href="rhm-icon-variants2.html">rhm-icon-variants2.html</a>，最早一版在 <a href="rhm-icon-variants.html">rhm-icon-variants.html</a>。</li>
+  </ul>
+</footer>
+
+<div class="bar-status" id="bar">已选 <b id="bar-id"></b><span id="bar-name"></span></div>
+
+<script>
+'use strict';
+
+/* ---------- 素材 ---------- */
+const IMG = { mark: 'mk-mark', hand: 'mk-hand', sin: 'mk-sin' };
+
+const INK_TOP    = 'linear-gradient(180deg,#050609 0%,#2B2F37 100%)';
+const INK_BOTTOM = 'linear-gradient(180deg,#FFFFFF 0%,#C4C9D3 100%)';
+const BLUE       = ['#1D5BFF', '#7FB0FF'];
+const BLUE_DEEP  = ['#0B43D6', '#6FA3FF'];
+const WHITE      = ['#FFFFFF', '#C9CED8'];
+
+const SPLIT = 'background:linear-gradient(180deg,#F7F8FB 0%,#F7F8FB 56%,#2E6BFF 56%,#2E6BFF 59%,#090A0D 59%,#050507 100%)';
+
+let seq = 0;
+
+const ASPECT = { 'mk-mark': 'g-mark', 'mk-hand': 'g-hand', 'mk-sin': 'g-sin' };
+
+function glyph(maskClass, style, ink) {
+  return `<i class="glyph ${maskClass} ${ASPECT[maskClass]}" style="background:${ink};${style}"></i>`;
+}
+
+function clip(inset) {
+  return `-webkit-clip-path:inset(${inset});clip-path:inset(${inset});`;
+}
+
+function prompt(style, o = {}) {
+  const id = 'lg' + (++seq);
+  const c = o.c || WHITE;
+  const u = o.u || WHITE;
+  const caret = !!o.caret;
+  return `<svg class="prompt" viewBox="0 0 100 72" style="--c1:${c[0]};--c2:${c[1]};--u1:${u[0]};--u2:${u[1]};${style}" aria-hidden="true">
+    <defs>
+      <linearGradient id="${id}c" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="72">
+        <stop offset="0" style="stop-color:var(--c1)"/><stop offset="1" style="stop-color:var(--c2)"/>
+      </linearGradient>
+      <linearGradient id="${id}u" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="72">
+        <stop offset="0" style="stop-color:var(--u1)"/><stop offset="1" style="stop-color:var(--u2)"/>
+      </linearGradient>
+    </defs>
+    <path d="M14 10 50 36 14 62" fill="none" stroke="url(#${id}c)" stroke-width="13"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M62 60h30" fill="none" stroke="url(#${id}u)" stroke-width="13" stroke-linecap="round"/>
+    ${caret ? `<rect x="95" y="56" width="4.4" height="12" rx="1.6" fill="url(#${id}c)"/>` : ''}
+  </svg>`;
+}
+
+/* 手跨缝：上半墨、下半白，切线落在 57.5% */
+function handAcrossSeam(width, top) {
+  const h = width * 74 / 46;
+  const rel = (57.5 - top) / h * 100;
+  return glyph(IMG.hand, `left:${(100 - width) / 2}%;top:${top}%;width:${width}%;` + clip(`0 0 ${100 - rel}% 0`), INK_TOP) +
+         glyph(IMG.hand, `left:${(100 - width) / 2}%;top:${top}%;width:${width}%;` + clip(`${rel}% 0 0 0`), INK_BOTTOM);
+}
+
+/* ---------- 六个版式 ---------- */
+const VARIANTS = [
+  {
+    id: 'A', name: 'E 式 · 手在上', desc: 'E 原布局减掉「信」，手留在白色区',
+    iconStyle: SPLIT,
+    art: () =>
+      glyph(IMG.hand, 'left:36%;top:6.5%;width:28%', INK_TOP) +
+      prompt('left:50%;bottom:11%;width:36%;transform:translateX(-50%)', { c: BLUE, u: WHITE, caret: true })
+  },
+  {
+    id: 'B', name: '骑缝 · 带提示符', desc: '手正中跨蓝缝，上下双色，提示符收底',
+    iconStyle: SPLIT,
+    art: () =>
+      handAcrossSeam(24, 26) +
+      prompt('left:50%;bottom:8%;width:26%;transform:translateX(-50%)', { c: BLUE, u: WHITE })
+  },
+  {
+    id: 'C', name: '骑缝 · 纯字', desc: '只手，不带走任何提示符',
+    iconStyle: SPLIT,
+    art: () => handAcrossSeam(30, 25.8)
+  },
+  {
+    id: 'D', name: '纯墨底', desc: '整块深色，白手居中，蓝提示符',
+    iconStyle: 'background:#101116',
+    art: () =>
+      glyph(IMG.hand, 'left:37%;top:23%;width:26%', INK_BOTTOM) +
+      prompt('left:50%;bottom:8.5%;width:28%;transform:translateX(-50%)', { c: BLUE, u: WHITE, caret: true })
+  },
+  {
+    id: 'E', name: '纯纸白', desc: '整块暖白，墨手居中，蓝提示符',
+    iconStyle: 'background:#F5F4F0',
+    art: () =>
+      glyph(IMG.hand, 'left:37%;top:23%;width:26%', INK_TOP) +
+      prompt('left:50%;bottom:8.5%;width:28%;transform:translateX(-50%)', { c: BLUE_DEEP, u: ['#12141A', '#3A3E47'], caret: true })
+  },
+  {
+    id: 'F', name: '科技蓝底', desc: '整块科技蓝，白手居中，白提示符',
+    iconStyle: 'background:#1C5BFF',
+    art: () =>
+      glyph(IMG.hand, 'left:36%;top:22%;width:28%', INK_BOTTOM) +
+      prompt('left:50%;bottom:8%;width:26%;transform:translateX(-50%)', { u: WHITE })
+  }
+];
+
+/* ---------- 渲染 ---------- */
+function iconTag(classes, inner, variant) {
+  const bg = variant.iconStyle ? ` style="${variant.iconStyle}"` : '';
+  return `<div class="icon ${classes}"${bg}>${inner}<div class="safe"></div></div>`;
+}
+
+function cardHTML(v) {
+  const art = v.art();
+  const big = iconTag('big', art, v);
+  const small = ['circle', 'squircle', 'rounded', 'tiny']
+    .map(c => iconTag('shape ' + c, v.art(), v)).join('');
+  return `
+  <figure class="card" data-id="${v.id}" data-name="${v.name}" tabindex="0" role="button"
+          aria-label="方案 ${v.id} ${v.name}：${v.desc}">
+    <div class="stage">
+      ${big}
+      <div class="shapes">${small}</div>
+    </div>
+    <figcaption class="cap"><b>${v.id} · ${v.name}</b><span>${v.desc}</span></figcaption>
+    <span class="pick">已选</span>
+  </figure>`;
+}
+
+const grid = document.getElementById('grid');
+grid.innerHTML = VARIANTS.map(cardHTML).join('');
+
+/* ---------- 选择 ---------- */
+const barEl = document.getElementById('bar');
+const barId = document.getElementById('bar-id');
+const barName = document.getElementById('bar-name');
+let picked = null;
+
+function pick(card) {
+  document.querySelectorAll('.card').forEach(c => c.dataset.picked = '0');
+  if (!card) { barEl.dataset.show = '0'; picked = null; return; }
+  card.dataset.picked = '1';
+  picked = card;
+  barId.textContent = card.dataset.id;
+  barName.textContent = '· ' + card.dataset.name;
+  barEl.dataset.show = '1';
+  try { history.replaceState(null, '', '#' + card.dataset.id); } catch (e) {}
+}
+
+grid.addEventListener('click', e => {
+  const card = e.target.closest('.card');
+  if (!card) return;
+  pick(card === picked ? null : card);
+});
+grid.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const card = e.target.closest('.card');
+  if (!card) return;
+  e.preventDefault();
+  pick(card === picked ? null : card);
+});
+
+/* ---------- 控件 ---------- */
+const segPage = document.getElementById('seg-page');
+segPage.addEventListener('click', e => {
+  const btn = e.target.closest('button[data-v]');
+  if (!btn) return;
+  segPage.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+  document.documentElement.dataset.page = btn.dataset.v;
+});
+
+document.getElementById('safe-toggle').addEventListener('change', e => {
+  document.documentElement.dataset.safe = e.target.checked ? 'on' : 'off';
+});
+
+const fromHash = location.hash.replace('#', '');
+if (fromHash) {
+  const card = [...document.querySelectorAll('.card')].find(c => c.dataset.id === fromHash);
+  if (card) pick(card);
+}
+</script>
+</body>
+</html>

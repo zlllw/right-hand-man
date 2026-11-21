@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="zh-CN" data-mode="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>手信 · 等待指示对比</title>
+<style>
+:root{--font:Inter,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;font-family:var(--font);font-synthesis:none}
+html[data-mode="light"]{--bg:#f5f5f8;--surface:#fff;--surface2:#f3f3f7;--ink:#1d1e26;--ink2:#4b4d59;--muted:#7c7e8c;--faint:#a7a9b5;--line:#e8e8ef;--accent:#5a5bd5;--accent-soft:#ecebfb;--accent-soft-ink:#43439f;--page:radial-gradient(1100px 700px at 70% -10%,#fff 0%,#eceef4 55%,#e6e8ef 100%);color-scheme:light}
+html[data-mode="dark"]{--bg:#0f0f13;--surface:#17171c;--surface2:#1f1f26;--ink:#ededf2;--ink2:#c2c3ce;--muted:#8f91a0;--faint:#63656f;--line:#26262f;--accent:#9a98ff;--accent-soft:#262446;--accent-soft-ink:#c7c5ff;--page:radial-gradient(1100px 700px at 70% -10%,#18181f 0%,#0d0d11 55%,#0a0a0d 100%);color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);min-height:100vh;padding:26px 22px 60px}
+button{font:inherit;cursor:pointer;border:0;color:inherit;background:none}
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;max-width:1160px;margin:0 auto 22px;flex-wrap:wrap}
+.top h1{font-size:22px;margin:0 0 6px;letter-spacing:-.3px}
+.top p{font-size:12px;color:var(--muted);margin:0;line-height:1.8}
+.seg{display:flex;gap:2px;padding:4px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
+.seg button{width:34px;height:32px;border-radius:999px;display:grid;place-items:center;color:var(--muted);font-size:14px}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent-soft-ink)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;max-width:1160px;margin:0 auto}
+.spec{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px}
+.spec-head{display:flex;align-items:baseline;gap:8px;font-size:12px;color:var(--muted);padding:2px 4px 10px}
+.spec-head b{font-size:13px;color:var(--ink)}
+.canvas{background:var(--bg);border-radius:14px;padding:14px 14px 10px;min-height:190px;display:flex;flex-direction:column}
+.chat{flex:1;display:flex;flex-direction:column;gap:10px}
+.user{align-self:flex-end;max-width:88%;background:var(--accent-soft);color:var(--accent-soft-ink);font-size:14px;line-height:1.7;padding:9px 13px;border-radius:14px 14px 5px 14px}
+.assistant-label{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}
+.mini{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;font:700 9px ui-monospace,Consolas,monospace;background:var(--accent-soft);color:var(--accent-soft-ink)}
+.reply{font-size:15px;line-height:1.7;color:var(--ink)}
+.wait{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);min-height:24px}
+/* A. 三点跳动 */
+.dots i{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--accent);margin-right:4px;animation:dotBounce .9s infinite ease-in-out}
+.dots i:nth-child(2){animation-delay:.15s}
+.dots i:nth-child(3){animation-delay:.3s}
+@keyframes dotBounce{0%,60%,100%{transform:translateY(0);opacity:.35}30%{transform:translateY(-5px);opacity:1}}
+/* B. 呼吸单点（常驻小灯，等待时强烈呼吸） */
+.lamp{width:8px;height:8px;border-radius:50%;background:var(--accent);opacity:.35;flex:none}
+.busy .lamp{animation:lampBreath 1.1s infinite ease-in-out}
+@keyframes lampBreath{0%,100%{transform:scale(1);opacity:.45;box-shadow:0 0 0 0 rgba(154,152,255,.0)}50%{transform:scale(1.75);opacity:1;box-shadow:0 0 10px 2px var(--accent-soft)}}
+/* C. 三点同步呼吸 */
+.pulse i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:5px;opacity:.3;animation:dotPulse 1.2s infinite ease-in-out}
+@keyframes dotPulse{0%,100%{opacity:.25;transform:scale(.85)}50%{opacity:1;transform:scale(1.12)}}
+/* D. dock 标志呼吸 */
+.dock-wrap{display:flex;justify-content:center;padding-top:10px}
+.dock{display:flex;align-items:center;gap:4px;padding:5px;border-radius:22px;background:var(--surface);border:1px solid var(--line);box-shadow:0 10px 30px rgba(0,0,0,.10)}
+.logo-slot{width:54px;height:44px;display:grid;place-items:center}
+.logo-mark{display:block;width:38px;height:22px;background:var(--faint);opacity:.6;-webkit-mask:url('assets/dock_mark.png') center/contain no-repeat;mask:url('assets/dock_mark.png') center/contain no-repeat;transform-origin:center}
+#c-logo.busy .logo-mark{background:var(--accent);animation:logoBreath 1.35s infinite ease-in-out}
+@keyframes logoBreath{0%,100%{transform:scale(1);opacity:.55;filter:drop-shadow(0 0 0 transparent)}50%{transform:scale(1.42);opacity:1;filter:drop-shadow(0 0 7px var(--accent))}}
+.dock-divider{width:1px;height:22px;background:var(--line)}
+.dock-btn{width:54px;height:44px;border-radius:16px;display:grid;place-items:center;color:var(--muted)}
+.dock-btn.active{background:var(--accent-soft);color:var(--accent)}
+.dock-btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+/* E. 双字交替呼吸 */
+.logo-duo{display:flex;align-items:center;justify-content:center;gap:5px}
+.glyph{display:block;height:22px;background:var(--faint);opacity:.6;transform-origin:center}
+.g-hand{width:14px;-webkit-mask:url('assets/dock_mark_left.png') center/contain no-repeat;mask:url('assets/dock_mark_left.png') center/contain no-repeat}
+.g-xin{width:21px;-webkit-mask:url('assets/dock_mark_right.png') center/contain no-repeat;mask:url('assets/dock_mark_right.png') center/contain no-repeat}
+.busy .g-hand{background:var(--accent);animation:glyphUp 1.3s infinite ease-in-out}
+.busy .g-xin{background:var(--accent);animation:glyphDown 1.3s infinite ease-in-out}
+@keyframes glyphUp{0%,100%{transform:scale(1);opacity:.55}50%{transform:scale(1.3);opacity:1}}
+@keyframes glyphDown{0%,100%{transform:scale(1);opacity:.55}50%{transform:scale(.74);opacity:.35}}
+/* F. 跑马灯光环绕 dock */
+.dock-aura{position:relative;border-radius:26px;padding:2px}
+.aura{position:absolute;inset:0;border-radius:inherit;padding:1.6px;
+  background:conic-gradient(from 0deg,transparent 0deg 282deg,rgba(154,152,255,.28) 306deg,var(--accent) 340deg,#ffffff 355deg,transparent 359deg);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  mask-composite:exclude;
+  opacity:0;z-index:0;filter:drop-shadow(0 0 3px var(--accent));
+  animation:auraSpin 2.2s linear infinite paused}
+.busy .aura{opacity:1;animation-play-state:running}
+@keyframes auraSpin{to{transform:rotate(360deg)}}
+.dock-aura .dock{position:relative;z-index:1}
+/* G. 静止标志 + 底层扫光 */
+.logo-sweep{position:relative;overflow:hidden;border-radius:12px}
+.logo-sweep .logo-mark{position:relative;z-index:1}
+.sweep-light{position:absolute;inset:-6px;z-index:0;opacity:0;pointer-events:none;filter:blur(1px);background:linear-gradient(105deg,transparent 30%,rgba(122,122,255,.16) 43%,rgba(178,178,255,.55) 50%,rgba(122,122,255,.16) 57%,transparent 70%);transform:translateX(-130%)}
+.busy .sweep-light{opacity:1;animation:shineSweep 2.4s linear infinite}
+@keyframes shineSweep{0%{transform:translateX(-130%)}68%{transform:translateX(130%)}100%{transform:translateX(130%)}}
+/* H. 字形蒙版内流光（光只在笔画里流动） */
+.logo-shimmer{display:block;width:38px;height:22px;background:var(--faint);opacity:.6;
+  -webkit-mask:url('assets/dock_mark.png') center/contain no-repeat;
+  mask:url('assets/dock_mark.png') center/contain no-repeat}
+.busy .logo-shimmer{opacity:1;background:linear-gradient(100deg,var(--faint) 0%,var(--faint) 38%,#ffffff 47%,var(--accent) 52%,#ffffff 57%,var(--faint) 66%,var(--faint) 100%);background-size:320% 100%;animation:shimmerFlow 2.1s linear infinite}
+@keyframes shimmerFlow{0%{background-position:160% 0}100%{background-position:-160% 0}}
+/* 速度调节 */
+.speed-row{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:11px;color:var(--muted)}
+.speed-row input[type=range]{flex:1;accent-color:var(--accent);height:18px}
+.speed-row output{min-width:66px;text-align:right;font-variant-numeric:tabular-nums;color:var(--ink2)}
+.preview-toggle{font-size:11px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);color:var(--ink2);background:var(--surface)}
+.preview-toggle.on{background:var(--accent-soft);color:var(--accent-soft-ink);border-color:transparent}
+.play{margin-top:12px;width:100%;padding:11px;border-radius:12px;background:var(--accent-soft);color:var(--accent-soft-ink);font-size:12px;font-weight:550}
+.play:disabled{opacity:.5;cursor:default}
+.hide{visibility:hidden}
+.foot{max-width:1160px;margin:22px auto 0;font-size:11px;color:var(--muted);line-height:1.9}
+</style>
+</head>
+<body>
+<div class="top">
+  <div>
+    <h1>等待回复的提示样式</h1>
+    <p>点「模拟发送」看一次完整流程：你的消息 → 等待指示 → 回复出现。选一个你喜欢的，我回 App 应用。</p>
+  </div>
+  <div class="seg" id="mode-seg" role="group" aria-label="颜色模式">
+    <button data-mode="light" aria-label="浅色">☀</button>
+    <button data-mode="dark" aria-label="深色">☾</button>
+    <button data-mode="system" aria-label="跟随系统">▣</button>
+  </div>
+</div>
+<main class="grid">
+  <section class="spec">
+    <div class="spec-head"><b>一、三点跳动</b><span>逐点弹跳，指示器只在等待时出现</span></div>
+    <div class="canvas" id="c-dots">
+      <div class="chat" id="chat-dots"></div>
+    </div>
+    <button class="play" data-target="dots">模拟发送</button>
+  </section>
+  <section class="spec">
+    <div class="spec-head"><b>二、呼吸圆点</b><span>常驻小灯，等待时强烈呼吸，平时静止</span></div>
+    <div class="canvas" id="c-lamp">
+      <div class="chat" id="chat-lamp"></div>
+    </div>
+    <button class="play" data-target="lamp">模拟发送</button>
+  </section>
+  <section class="spec">
+    <div class="spec-head"><b>三、三点同步呼吸</b><span>三点一起明暗起伏，比弹跳安静</span></div>
+    <div class="canvas" id="c-pulse">
+      <div class="chat" id="chat-pulse"></div>
+    </div>
+    <button class="play" data-target="pulse">模拟发送</button>
+  </section>
+  <section class="spec">
+    <div class="spec-head"><b>四、dock 标志呼吸</b><span>空闲静止，等待时手信标记放大发光</span></div>
+    <div class="canvas" id="c-logo">
+      <div class="chat" id="chat-logo"></div>
+      <div class="dock-wrap">
+        <div class="dock">
+          <span class="logo-slot"><span class="logo-mark"></span></span>
+          <span class="dock-divider"></span>
+          <span class="dock-btn active"><svg viewBox="0 0 24 24"><path d="M12 20.3c4.8 0 8.7-3.5 8.7-7.9S16.8 4.5 12 4.5 3.3 8 3.3 12.4c0 1.6.6 3.1 1.6 4.4l-.9 3.5 3.9-1c1.2.6 2.7 1 4.1 1Z"/></svg></span>
+          <span class="dock-btn"><svg viewBox="0 0 24 24"><path d="m5.5 7.2 4.6 4.8-4.6 4.8M12.7 16.8H19"/></svg></span>
+        </div>
+      </div>
+    </div>
+    <button class="play" data-target="logo">模拟发送</button>
+  </section>
+  <section class="spec">
+    <div class="spec-head"><b>五、双字交替呼吸</b><span>「手」放大时「信」缩小，交替进行</span></div>
+    <div class="canvas" id="c-duo">
+      <div class="chat" id="chat-duo"></div>
+      <div class="dock-wrap">
+        <div class="dock">
+          <span class="logo-slot logo-duo"><span class="glyph g-hand"></span><span class="glyph g-xin"></span></span>
+          <span class="dock-divider"></span>
+          <span class="dock-btn active"><svg viewBox="0 0 24 24"><path d="M12 20.3c4.8 0 8.7-3.5 8.7-7.9S16.8 4.5 12 4.5 3.3 8 3.3 12.4c0 1.6.6 3.1 1.6 4.4l-.9 3.5 3.9-1c1.2.6 2.7 1 4.1 1Z"/></svg></span>
+          <span class="dock-btn"><svg viewBox="0 0 24 24"><path d="m5.5 7.2 4.6 4.8-4.6 4.8M12.7 16.8H19"/></svg></span>
+        </div>
+      </div>
+    </div>
+    <button class="play" data-target="duo">模拟发送</button>
+  </section>
+  <section class="spec">
+    <div class="spec-head"><b>六、跑马灯光环</b><span>亮点头 + 渐隐拖尾，沿 dock 边缘循环</span></div>
+    <div class="canvas" id="c-aura">
+      <div class="chat" id="chat-aura"></div>
+      <div class="dock-wrap">
+        <div class="dock-aura">
+          <span class="aura"></span>
+          <div class="dock">
+            <span class="logo-slot"><span class="logo-mark"></span></span>
+            <span class="dock-divider"></span>
+            <span class="dock-btn active"><svg viewBox="0 0 24 24"><path d="M12 20.3c4.8 0 8.7-3.5 8.7-7.9S16.8 4.5 12 4.5 3.3 8 3.3 12.4c0 1.6.6 3.1 1.6 4.4l-.9 3.5 3.9-1c1.2.6 2.7 1 4.1 1Z"/></svg></span>
+            <span class="dock-btn"><svg viewBox="0 0 24 24"><path d="m5.5 7.2 4.6 4.8-4.6 4.8M12.7 16.8H19"/></svg></span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button class="play" data-target="aura">模拟发送</button>
+  </section>
+  <section class="spec">
+    <div class="spec-head"><b>七、静止标志 + 扫光</b><span>标记不动，底层光带定时扫过</span></div>
+    <div class="canvas" id="c-shine">
+      <div class="chat" id="chat-shine"></div>
+      <div class="dock-wrap">
+        <div class="dock">
+          <span class="logo-slot logo-sweep"><span class="sweep-light"></span><span class="logo-mark"></span></span>
+          <span class="dock-divider"></span>
+          <span class="dock-btn active"><svg viewBox="0 0 24 24"><path d="M12 20.3c4.8 0 8.7-3.5 8.7-7.9S16.8 4.5 12 4.5 3.3 8 3.3 12.4c0 1.6.6 3.1 1.6 4.4l-.9 3.5 3.9-1c1.2.6 2.7 1 4.1 1Z"/></svg></span>
+          <span class="dock-btn"><svg viewBox="0 0 24 24"><path d="m5.5 7.2 4.6 4.8-4.6 4.8M12.7 16.8H19"/></svg></span>
+        </div>
+      </div>
+    </div>
+    <button class="play" data-target="shine">模拟发送</button>
+  </section>
+  <section class="spec">
+    <div class="spec-head"><b>八、字形内流光</b><span>字不动，光只在笔画里流动（字形当蒙版）</span></div>
+    <div class="canvas" id="c-shimmer">
+      <div class="chat" id="chat-shimmer"></div>
+      <div class="dock-wrap">
+        <div class="dock">
+          <span class="logo-slot"><span class="logo-shimmer"></span></span>
+          <span class="dock-divider"></span>
+          <span class="dock-btn active"><svg viewBox="0 0 24 24"><path d="M12 20.3c4.8 0 8.7-3.5 8.7-7.9S16.8 4.5 12 4.5 3.3 8 3.3 12.4c0 1.6.6 3.1 1.6 4.4l-.9 3.5 3.9-1c1.2.6 2.7 1 4.1 1Z"/></svg></span>
+          <span class="dock-btn"><svg viewBox="0 0 24 24"><path d="m5.5 7.2 4.6 4.8-4.6 4.8M12.7 16.8H19"/></svg></span>
+        </div>
+      </div>
+    </div>
+    <div class="speed-row">
+      <span>扫光速度</span>
+      <input type="range" id="shimmer-speed" min="600" max="60000" step="100" value="30000" aria-label="扫光速度">
+      <output id="shimmer-speed-label">30.0 秒/轮</output>
+    </div>
+    <button class="play" data-target="shimmer">模拟发送</button>
+    <button class="preview-toggle" id="shimmer-preview" style="margin-top:8px;width:100%">循环预览</button>
+  </section>
+</main>
+<p class="foot">说明：等待时长演示为 4 秒（真实取决于模型首包速度）。三种方式的文字提示统一为「正在思考…」；也可换成「请稍等」。呼吸圆点方案中，小灯在空闲时保持极淡的静止状态。</p>
+<script>
+'use strict';
+const REPLIES = {
+  dots: '看完了。文件和历史两条线都能先做，顺序是：先定手机界面，再补上传和历史。',
+  lamp: '看完了。文件和历史两条线都能先做，顺序是：先定手机界面，再补上传和历史。',
+  pulse: '看完了。文件和历史两条线都能先做，顺序是：先定手机界面，再补上传和历史。',
+  logo: '看完了。文件和历史两条线都能先做，顺序是：先定手机界面，再补上传和历史。',
+  duo: '看完了。文件和历史两条线都能先做，顺序是：先定手机界面，再补上传和历史。',
+  aura: '看完了。文件和历史两条线都能先做，顺序是：先定手机界面，再补上传和历史。',
+  shine: '看完了。文件和历史两条线都能先做，顺序是：先定手机界面，再补上传和历史。',
+  shimmer: '看完了。文件和历史两条线都能先做，顺序是：先定手机界面，再补上传和历史。'
+};
+const USER_TEXT = '帮我看看这份需求，整理下接下来要做的事。';
+
+function waitHtml(kind) {
+  if (kind === 'dots') return '<span class="wait"><span class="dots"><i></i><i></i><i></i></span>正在思考…</span>';
+  if (kind === 'lamp') return '<span class="wait"><span class="lamp"></span>正在思考…</span>';
+  if (kind === 'logo') return '<span class="wait hide">·</span>';
+  return '<span class="wait"><span class="pulse"><i></i><i></i><i></i></span>正在思考…</span>';
+}
+
+function idleHtml(kind) {
+  if (kind === 'lamp') return '<span class="wait"><span class="lamp"></span><span class="hide">·</span></span>';
+  return '<span class="wait hide">·</span>';
+}
+
+function renderIdle(kind) {
+  const box = document.getElementById('chat-' + kind);
+  box.innerHTML =
+    '<div class="assistant-label"><span class="mini">&gt;_</span>opencode</div>' +
+    '<div id="reply-' + kind + '"></div>' +
+    '<div id="wait-' + kind + '">' + idleHtml(kind) + '</div>';
+}
+
+function play(kind) {
+  const button = document.querySelector('.play[data-target="' + kind + '"]');
+  if (button.disabled) return;
+  button.disabled = true;
+  renderIdle(kind);
+  const box = document.getElementById('chat-' + kind);
+  const canvas = document.getElementById('c-' + kind);
+  box.insertAdjacentHTML('afterbegin', '<div class="user">' + USER_TEXT + '</div>');
+  document.getElementById('wait-' + kind).innerHTML = waitHtml(kind);
+  if (kind === 'lamp') canvas.classList.add('busy'); // 呼吸灯方案用“强烈呼吸”状态
+  if (kind === 'logo' || kind === 'duo' || kind === 'aura' || kind === 'shine' || kind === 'shimmer') canvas.classList.add('busy');
+  setTimeout(() => {
+    canvas.classList.remove('busy');
+    document.getElementById('wait-' + kind).innerHTML = idleHtml(kind);
+    document.getElementById('reply-' + kind).innerHTML = '<div class="reply">' + REPLIES[kind] + '</div>';
+    button.disabled = false;
+  }, 4000);
+}
+
+document.querySelectorAll('.play').forEach(button => {
+  button.addEventListener('click', () => play(button.dataset.target));
+});
+
+// 外观
+const mq = matchMedia('(prefers-color-scheme: dark)');
+let mode = 'system';
+function applyMode() {
+  const resolved = mode === 'system' ? (mq.matches ? 'dark' : 'light') : mode;
+  document.documentElement.dataset.mode = resolved;
+  document.querySelectorAll('#mode-seg [data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+}
+document.querySelectorAll('#mode-seg [data-mode]').forEach(b => b.addEventListener('click', () => { mode = b.dataset.mode; applyMode(); }));
+mq.addEventListener?.('change', () => { if (mode === 'system') applyMode(); });
+applyMode();
+
+['dots', 'lamp', 'pulse', 'logo', 'duo', 'aura', 'shine', 'shimmer'].forEach(renderIdle);
+
+// 第八方案的扫光速度滑杆（600ms ~ 4000ms 一轮）
+const speedSlider = document.getElementById('shimmer-speed');
+const speedLabel = document.getElementById('shimmer-speed-label');
+const previewToggle = document.getElementById('shimmer-preview');
+function applySpeed() {
+  const ms = Number(speedSlider.value);
+  document.querySelector('#c-shimmer .logo-shimmer').style.animationDuration = (ms / 1000) + 's';
+  speedLabel.textContent = (ms / 1000).toFixed(1) + ' 秒/轮';
+}
+speedSlider.addEventListener('input', applySpeed);
+applySpeed();
+previewToggle.addEventListener('click', () => {
+  const canvas = document.getElementById('c-shimmer');
+  canvas.classList.toggle('busy');
+  const on = canvas.classList.contains('busy');
+  previewToggle.classList.toggle('on', on);
+  previewToggle.textContent = on ? '停止预览' : '循环预览';
+});
+</script>
+</body>
+</html>
