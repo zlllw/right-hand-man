@@ -24,12 +24,19 @@ import threading
 import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from adapters.fake import FakeAgentAdapter  # noqa: E402
 from adapters.opencode import OpencodeAgentAdapter  # noqa: E402
+from files import (  # noqa: E402
+    BadUpload,
+    FileTooLarge,
+    UnsafePath,
+    Workspace,
+    parse_multipart_upload,
+)
 from ring import DONE_TTL_SECONDS, EventLog, sse_block  # noqa: E402
 
 
@@ -67,8 +74,9 @@ class ConversationWorker(object):
 
 
 class Bridge(object):
-    def __init__(self, adapter):
+    def __init__(self, adapter, workspace=None):
         self.adapter = adapter
+        self.workspace = workspace
         self._sessions = {}
         self._sessions_lock = threading.Lock()
         self._workers = {}
@@ -93,6 +101,24 @@ class Bridge(object):
     def session(self, request_id):
         with self._sessions_lock:
             return self._sessions.get(request_id)
+
+    def stop(self, request_id):
+        """中断一次生成：先给 SSE 补一条 done（客户端立刻收尾），再通知上游 abort。"""
+        session = self.session(request_id)
+        if session is None:
+            return False
+        with session.condition:
+            if not session.completed:
+                last = session.log.last_event
+                if last is None or last.name != "done":
+                    session.log.append("done", {"finishReason": "stop"})
+                session.completed = True
+                session.completed_at = time.monotonic()
+                session.condition.notify_all()
+        threading.Thread(
+            target=self.adapter.abort, args=(session.conversation_id,), daemon=True
+        ).start()
+        return True
 
     def execute(self, session, message):
         """运行一次适配器调用，把事件写进会话日志（B4/B5）。"""
@@ -181,8 +207,35 @@ class BridgeHandler(BaseHTTPRequestHandler):
             if session is None:
                 return self._json(404, {"error": "unknown_request", "requestId": request_id})
             return self._stream(session, after_id)
+        if path == "/conversations":
+            return self._json(200, self.bridge.adapter.list_conversations())
+        if path.startswith("/conversations/") and path.endswith("/messages"):
+            conversation_id = unquote(path[len("/conversations/"):-len("/messages")])
+            raw_limit = parse_qs(parsed.query).get("limit")
+            limit = 50
+            if raw_limit:
+                try:
+                    limit = max(1, min(500, int(raw_limit[0])))
+                except ValueError:
+                    return self._json(400, {"error": "invalid_limit"})
+            return self._json(200, self.bridge.adapter.conversation_messages(conversation_id, limit))
+        if path == "/files":
+            workspace = self.bridge.workspace
+            if workspace is None:
+                return self._json(501, {"error": "no_workspace"})
+            return self._json(200, {"root": workspace.display_root(), "files": workspace.list_files()})
         if path.startswith("/files/"):
-            return self._json(501, {"error": "not_implemented", "hint": "/files 属阶段 4（契约 B 的 B3）"})
+            workspace = self.bridge.workspace
+            if workspace is None:
+                return self._json(501, {"error": "no_workspace"})
+            name = unquote(path[len("/files/"):])
+            try:
+                target = workspace.resolve(name)
+            except UnsafePath:
+                return self._json(403, {"error": "unsafe_path"})
+            if not os.path.isfile(target):
+                return self._json(404, {"error": "not_found", "name": name})
+            return self._send_file(target)
         return self._json(404, {"error": "not_found", "path": path})
 
     def do_POST(self):
@@ -196,9 +249,104 @@ class BridgeHandler(BaseHTTPRequestHandler):
             if not isinstance(message, str) or not isinstance(conversation_id, str):
                 return self._json(400, {"error": "missing_fields"})
             return self._json(200, {"requestId": self.bridge.submit(conversation_id, message)})
+        if parsed.path == "/abort":
+            body = self._read_json()
+            if body is None:
+                return self._json(400, {"error": "invalid_json"})
+            request_id = body.get("requestId")
+            if not isinstance(request_id, str):
+                return self._json(400, {"error": "missing_fields"})
+            if not self.bridge.stop(request_id):
+                return self._json(404, {"error": "unknown_request", "requestId": request_id})
+            return self._json(200, {"ok": True})
         if parsed.path == "/files":
-            return self._json(501, {"error": "not_implemented", "hint": "/files 属阶段 4（契约 B 的 B3）"})
+            workspace = self.bridge.workspace
+            if workspace is None:
+                return self._json(501, {"error": "no_workspace"})
+            content_type = self.headers.get("Content-Type") or ""
+            if "multipart/form-data" not in content_type:
+                return self._json(400, {"error": "multipart_required"})
+            declared = int(self.headers.get("Content-Length") or 0)
+            if declared > workspace.max_bytes or declared <= 0:
+                # B8：超限返回明确错误而不是截断；顺带把请求体排空以保持连接可复用
+                self._drain(declared)
+                return self._json(413, {"error": "file_too_large", "maxBytes": workspace.max_bytes})
+            body = self.rfile.read(declared)
+            try:
+                filename, data = parse_multipart_upload(content_type, body, workspace.max_bytes)
+                saved = workspace.save_upload(filename, data)
+            except FileTooLarge:
+                return self._json(413, {"error": "file_too_large", "maxBytes": workspace.max_bytes})
+            except (BadUpload, ValueError) as exc:
+                return self._json(400, {"error": "bad_upload", "detail": str(exc)})
+            return self._json(200, {"path": saved["displayPath"], "name": saved["name"], "size": saved["size"]})
         return self._json(404, {"error": "not_found", "path": parsed.path})
+
+    def do_PATCH(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+        if path.startswith("/conversations/"):
+            conversation_id = unquote(path[len("/conversations/"):])
+            if not conversation_id or "/" in conversation_id:
+                return self._json(404, {"error": "not_found", "path": path})
+            body = self._read_json()
+            if body is None:
+                return self._json(400, {"error": "invalid_json"})
+            title = body.get("title")
+            if not isinstance(title, str) or not title.strip():
+                return self._json(400, {"error": "missing_title"})
+            if not self.bridge.adapter.rename_conversation(conversation_id, title.strip()):
+                return self._json(404, {"error": "unknown_conversation"})
+            return self._json(200, {"ok": True})
+        return self._json(404, {"error": "not_found", "path": path})
+
+    def do_DELETE(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+        if path.startswith("/files/"):
+            workspace = self.bridge.workspace
+            if workspace is None:
+                return self._json(501, {"error": "no_workspace"})
+            name = unquote(path[len("/files/"):])
+            try:
+                removed = workspace.delete(name)
+            except UnsafePath:
+                return self._json(403, {"error": "unsafe_path"})
+            if not removed:
+                return self._json(404, {"error": "not_found", "name": name})
+            return self._json(200, {"ok": True})
+        if path.startswith("/conversations/"):
+            conversation_id = unquote(path[len("/conversations/"):])
+            if not conversation_id or "/" in conversation_id:
+                return self._json(404, {"error": "not_found", "path": path})
+            if not self.bridge.adapter.delete_conversation(conversation_id):
+                return self._json(404, {"error": "unknown_conversation"})
+            return self._json(200, {"ok": True})
+        return self._json(404, {"error": "not_found", "path": path})
+
+    def _drain(self, declared):
+        remaining = declared
+        while remaining > 0:
+            chunk = self.rfile.read(min(remaining, 65536))
+            if not chunk:
+                return
+            remaining -= len(chunk)
+
+    def _send_file(self, target):
+        import mimetypes
+
+        mime = mimetypes.guess_type(target)[0] or "application/octet-stream"
+        size = os.path.getsize(target)
+        self.send_response(200)
+        self.send_header("Content-Type", mime)
+        self.send_header("Content-Length", str(size))
+        self.end_headers()
+        with open(target, "rb") as handle:
+            while True:
+                chunk = handle.read(65536)
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
 
     def _stream(self, session, after_id):
         self.send_response(200)
@@ -215,9 +363,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
             return
 
 
-def build_server(adapter, port=0, host="127.0.0.1"):
+def build_server(adapter, port=0, host="127.0.0.1", workspace=None):
     """构造 (bridge, server)。端口传 0 表示由系统选空闲端口。"""
-    bridge = Bridge(adapter)
+    bridge = Bridge(adapter, workspace=workspace)
     handler = type("BridgeHandlerWithAdapter", (BridgeHandler,), {"bridge": bridge})
     return bridge, ThreadingHTTPServer((host, port), handler)
 
@@ -241,6 +389,11 @@ def main(argv=None):
     parser.add_argument("--adapter", choices=("fake", "opencode"), default="fake")
     parser.add_argument("--oc-port", type=int, default=4096, help="opencode serve 的端口")
     parser.add_argument("--port-file", default=None, help="端口文件路径（真机为 $HOME/.bridge/port）")
+    parser.add_argument(
+        "--workspace",
+        default=None,
+        help="文件工作区根目录（默认 $HOME/rhmdir；传 none 可关闭 /files）",
+    )
     args = parser.parse_args(argv)
 
     if args.adapter == "fake":
@@ -248,7 +401,12 @@ def main(argv=None):
     else:
         adapter = OpencodeAgentAdapter(port=args.oc_port)
 
-    bridge, server = build_server(adapter, port=args.port)
+    workspace = None
+    if args.workspace != "none":
+        root = args.workspace or os.path.join(os.path.expanduser("~"), "rhmdir")
+        workspace = Workspace(root)
+
+    bridge, server = build_server(adapter, port=args.port, workspace=workspace)
     port = server.server_address[1]
     try:
         adapter.start()

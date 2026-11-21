@@ -27,3 +27,23 @@ class AgentAdapter(object):
 
     def run(self, conversation_id, message, emit):
         raise NotImplementedError
+
+    def list_conversations(self):
+        """B9 扩展：``[{conversationId, title, updatedAt}]``，按 updatedAt 降序。"""
+        return []
+
+    def conversation_messages(self, conversation_id, limit):
+        """B9 扩展：归一化历史 ``[{role, text, ts}]``，最多 limit 条（取最新）。"""
+        return []
+
+    def rename_conversation(self, conversation_id, title):
+        """B9 扩展：重命名会话；不支持或不存在时返回 False。"""
+        return False
+
+    def delete_conversation(self, conversation_id):
+        """B9 扩展：删除会话；不支持或不存在时返回 False。"""
+        return False
+
+    def abort(self, conversation_id):
+        """中断当前生成；不支持时返回 False。"""
+        return False
