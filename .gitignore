@@ -56,3 +56,6 @@ __pycache__/
 !app/src/main/cpp/bootstrap-x86_64.zip
 # 上游原件只本地保留，供 rewrite-bootstrap.sh 反复重跑，不入库
 app/src/main/cpp/*.zip.upstream
+
+# 本地任务书，不入库
+/手信right-hand man 任务书：Termux 双入口一体化 Agent 应用开发.md
