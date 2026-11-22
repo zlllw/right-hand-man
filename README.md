@@ -67,7 +67,7 @@
 
 ## 快速开始
 
-> 当前为开发者预览。安装包以仓库 Releases 为准；没有 Release 时，按下方步骤自行构建。
+> 当前为开发者预览。安装包见 [Releases](https://github.com/zlllw/right-hand-man/releases)（预览包使用 debug 签名）；也可以按下方步骤自行构建。
 
 1. 安装 APK，首次打开等待运行环境准备（自动安装 python / node / npm，需要联网）；
 2. 按 `opencode` 的方式配置模型服务：API Key，或本地 Ollama；
