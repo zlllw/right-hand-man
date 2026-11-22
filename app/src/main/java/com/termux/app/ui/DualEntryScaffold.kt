@@ -81,7 +81,11 @@ fun DualEntryScaffold(
     onPrepareEnv: () -> Unit,
     terminalRoot: View?,
     terminalFocused: Boolean,
-    onTerminalPageChanged: (Boolean) -> Unit
+    onTerminalPageChanged: (Boolean) -> Unit,
+    opencodeInstalling: Boolean,
+    opencodeMessage: String?,
+    opencodeError: String?,
+    onInstallOpencode: () -> Unit
 ) {
     val state by viewModel.state.collectAsState()
     val pagerState = rememberPagerState(pageCount = { PAGE_COUNT })
@@ -92,12 +96,20 @@ fun DualEntryScaffold(
 
     // 探活通过（running）才算连上；否则把真实原因原样给用户，不含糊成"未连接"。
     // fake 适配器意味着没找到 opencode，必须明确告诉用户这是演示回声。
+    val fakeAdapter = bridgeState.running && bridgeState.adapter == "fake"
     val bridgeNotice = when {
         !bridgeState.running -> bridgeState.message
-        bridgeState.adapter == "fake" ->
-            "未检测到 opencode：当前为演示回声，请在终端安装 opencode 并重启应用"
+        fakeAdapter && opencodeInstalling -> opencodeMessage ?: "正在安装 opencode…"
+        fakeAdapter && opencodeError != null -> opencodeError
+        fakeAdapter -> "未检测到 opencode：当前为演示回声，请点右侧按钮一键安装"
         else -> null
     }
+    val bridgeActionLabel = when {
+        fakeAdapter && !opencodeInstalling ->
+            if (opencodeError != null) "重试" else "安装 opencode"
+        else -> null
+    }
+    val bridgeBusy = bridgeState.starting || opencodeInstalling
 
     // 终端页整页恒黑（含状态栏、dock 周边与底部手势区），不跟随明暗主题
     val terminalPage = pagerState.currentPage == 1
@@ -129,7 +141,9 @@ fun DualEntryScaffold(
                     ChatScreen(
                         state = state,
                         bridgeNotice = bridgeNotice,
-                        bridgeLoading = !bridgeState.running,
+                        bridgeLoading = bridgeBusy,
+                        bridgeActionLabel = bridgeActionLabel,
+                        onBridgeAction = onInstallOpencode,
                         onSend = viewModel::send,
                         modifier = Modifier.weight(1f),
                         onNewConversation = viewModel::newConversation,

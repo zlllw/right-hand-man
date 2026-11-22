@@ -51,6 +51,7 @@ class MainActivity : TermuxTerminalHostActivity() {
     private lateinit var chatViewModel: ChatViewModel
     private lateinit var envViewModel: EnvViewModel
     private lateinit var bridgeViewModel: BridgeViewModel
+    private lateinit var opencodeViewModel: OpencodeViewModel
     private lateinit var terminalRoot: TermuxActivityRootView
 
     private var terminalFocused by mutableStateOf(false)
@@ -86,6 +87,7 @@ class MainActivity : TermuxTerminalHostActivity() {
 
         envViewModel = EnvViewModel(EnvPreparer(applicationContext))
         bridgeViewModel = BridgeViewModel(BridgeProcess(applicationContext))
+        opencodeViewModel = OpencodeViewModel(EnvPreparer(applicationContext))
 
         setContent {
             val mode by RhmAppearance.mode.collectAsState()
@@ -110,6 +112,7 @@ class MainActivity : TermuxTerminalHostActivity() {
                 ) {
                     val envState by envViewModel.state.collectAsState()
                     val bridgeState by bridgeViewModel.state.collectAsState()
+                    val opencodeState by opencodeViewModel.state.collectAsState()
 
                     // 环境就绪后自动拉起 Bridge；失败不自动重试，避免在坏环境里反复起进程
                     LaunchedEffect(envState.phase) {
@@ -130,6 +133,14 @@ class MainActivity : TermuxTerminalHostActivity() {
                         }
                     }
 
+                    // opencode 装好后重启 Bridge，让 fake 切回真实适配器
+                    LaunchedEffect(opencodeState.installed) {
+                        if (opencodeState.installed) {
+                            bridgeViewModel.restart()
+                            opencodeViewModel.reset()
+                        }
+                    }
+
                     DualEntryScaffold(
                         viewModel = chatViewModel,
                         envState = envState,
@@ -137,7 +148,11 @@ class MainActivity : TermuxTerminalHostActivity() {
                         onPrepareEnv = envViewModel::prepare,
                         terminalRoot = terminalRoot,
                         terminalFocused = terminalFocused,
-                        onTerminalPageChanged = ::onTerminalPageChanged
+                        onTerminalPageChanged = ::onTerminalPageChanged,
+                        opencodeInstalling = opencodeState.installing,
+                        opencodeMessage = opencodeState.message,
+                        opencodeError = opencodeState.error,
+                        onInstallOpencode = opencodeViewModel::install
                     )
                 }
             }

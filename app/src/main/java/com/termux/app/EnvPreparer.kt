@@ -70,7 +70,7 @@ class EnvPreparer(private val context: Context) {
      * 失败不抛异常，只体现在 [Event.Finished.ok] 上——UI 不会因为异常悄悄停住。
      */
     fun prepare(): Flow<Event> = flow {
-        val script = runCatching { installScript() }.getOrElse { error ->
+        val script = runCatching { installScript("env-prep.sh") }.getOrElse { error ->
             emit(Event.Finished(false, "无法写入安装脚本：${error.message}"))
             return@flow
         }
@@ -89,23 +89,7 @@ class EnvPreparer(private val context: Context) {
             return@flow
         }
 
-        val exitCode = coroutineScope {
-            val watchdog = launch {
-                delay(TIMEOUT_MINUTES * 60_000L)
-                process.destroyForcibly()
-            }
-            try {
-                process.inputStream.bufferedReader().use { reader ->
-                    while (true) {
-                        val line = reader.readLine() ?: break
-                        emit(Event.Line(line))
-                    }
-                }
-                process.waitFor()
-            } finally {
-                watchdog.cancel()
-            }
-        }
+        val exitCode = runProcess(process, TIMEOUT_MINUTES) { emit(Event.Line(it)) }
 
         val after = probe()
         when {
@@ -118,9 +102,67 @@ class EnvPreparer(private val context: Context) {
         }
     }.flowOn(Dispatchers.IO)
 
-    private fun installScript(): File {
-        val target = File(context.filesDir, "env-prep.sh")
-        context.assets.open("env-prep.sh").use { input ->
+    /**
+     * 一键安装/修复 opencode：npm 取包、改 com.rhmapp 路径、解出 musl 二进制。
+     * 失败只体现在 [Event.Finished.ok]，UI 不会卡死。
+     */
+    fun installOpencode(): Flow<Event> = flow {
+        val script = runCatching { installScript("install-opencode.sh") }.getOrElse { error ->
+            emit(Event.Finished(false, "无法写入安装脚本：${error.message}"))
+            return@flow
+        }
+        val bash = File(prefix, "bin/bash")
+        if (!bash.canExecute()) {
+            emit(Event.Finished(false, "bash 不存在：请先准备运行环境"))
+            return@flow
+        }
+        val process = runCatching {
+            ProcessBuilder(bash.absolutePath, script.absolutePath)
+                .redirectErrorStream(true)
+                .apply { environment().putAll(childEnv()) }
+                .start()
+        }.getOrElse { error ->
+            emit(Event.Finished(false, "无法启动安装脚本：${error.message}"))
+            return@flow
+        }
+
+        val exitCode = runProcess(process, OPENCODE_TIMEOUT_MINUTES) { emit(Event.Line(it)) }
+        val installed = File(prefix, "bin/opencode").canExecute()
+        when {
+            exitCode == 0 && installed ->
+                emit(Event.Finished(true, "opencode 已安装"))
+            exitCode == 0 ->
+                emit(Event.Finished(false, "脚本报成功，但 opencode 仍不可执行"))
+            else ->
+                emit(Event.Finished(false, "opencode 安装失败（脚本退出码 $exitCode）"))
+        }
+    }.flowOn(Dispatchers.IO)
+
+    private suspend fun runProcess(
+        process: Process,
+        timeoutMinutes: Long,
+        emitLine: suspend (String) -> Unit
+    ): Int = coroutineScope {
+        val watchdog = launch {
+            delay(timeoutMinutes * 60_000L)
+            process.destroyForcibly()
+        }
+        try {
+            process.inputStream.bufferedReader().use { reader ->
+                while (true) {
+                    val line = reader.readLine() ?: break
+                    emitLine(line)
+                }
+            }
+            process.waitFor()
+        } finally {
+            watchdog.cancel()
+        }
+    }
+
+    private fun installScript(assetName: String): File {
+        val target = File(context.filesDir, assetName)
+        context.assets.open(assetName).use { input ->
             target.outputStream().use { output -> input.copyTo(output) }
         }
         target.setExecutable(true, true)
@@ -153,5 +195,6 @@ class EnvPreparer(private val context: Context) {
 
     private companion object {
         const val TIMEOUT_MINUTES = 20L
+        const val OPENCODE_TIMEOUT_MINUTES = 25L
     }
 }

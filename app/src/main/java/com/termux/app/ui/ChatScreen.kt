@@ -112,6 +112,8 @@ fun ChatScreen(
     state: ChatViewModel.UiState,
     bridgeNotice: String?,
     bridgeLoading: Boolean = false,
+    bridgeActionLabel: String? = null,
+    onBridgeAction: (() -> Unit)? = null,
     onSend: (String) -> Unit,
     modifier: Modifier = Modifier,
     onNewConversation: () -> Unit = {},
@@ -261,13 +263,28 @@ fun ChatScreen(
                         .background(colors.surface2)
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
-                    Text(
-                        text = notice,
-                        fontSize = 12.sp,
-                        color = colors.muted,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = notice,
+                            modifier = Modifier.weight(1f),
+                            fontSize = 12.sp,
+                            color = colors.muted,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (bridgeActionLabel != null && onBridgeAction != null) {
+                            TextButton(
+                                onClick = onBridgeAction,
+                                enabled = !bridgeLoading
+                            ) {
+                                Text(
+                                    text = bridgeActionLabel,
+                                    fontSize = 12.sp,
+                                    color = colors.accent
+                                )
+                            }
+                        }
+                    }
                     if (bridgeLoading) {
                         LinearProgressIndicator(
                             modifier = Modifier

@@ -54,4 +54,25 @@ class BridgeViewModel(private val process: BridgeProcess) : ViewModel() {
             withContext(Dispatchers.IO) { runCatching { process.stop() } }
         }
     }
+
+    /** 安装/修复 Agent 后重启 Bridge，让它按新的默认适配器重新探测。 */
+    fun restart() {
+        if (mutableState.value.starting) return
+        mutableState.value = UiState(starting = true, message = "正在重启 Bridge…")
+        viewModelScope.launch {
+            val status = withContext(Dispatchers.IO) {
+                runCatching { process.stop() }
+                runCatching { process.ensureStarted() }.getOrElse { error ->
+                    BridgeProcess.Status(false, null, "Bridge 启动异常：${error.message}")
+                }
+            }
+            mutableState.value = UiState(
+                starting = false,
+                running = status.running,
+                port = status.port,
+                message = status.message,
+                adapter = status.adapter
+            )
+        }
+    }
 }
