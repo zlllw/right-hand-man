@@ -22,7 +22,8 @@ class BridgeViewModel(private val process: BridgeProcess) : ViewModel() {
         val starting: Boolean = false,
         val running: Boolean = false,
         val port: Int? = null,
-        val message: String = "Bridge 未启动"
+        val message: String = "Bridge 未启动",
+        val adapter: String? = null
     )
 
     private val mutableState = MutableStateFlow(UiState())
@@ -41,7 +42,8 @@ class BridgeViewModel(private val process: BridgeProcess) : ViewModel() {
                 starting = false,
                 running = status.running,
                 port = status.port,
-                message = status.message
+                message = status.message,
+                adapter = status.adapter
             )
         }
     }

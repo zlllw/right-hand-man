@@ -69,6 +69,8 @@
 
 > 当前为开发者预览。安装包见 [Releases](https://github.com/zlllw/right-hand-man/releases)（预览包使用 debug 签名）；也可以按下方步骤自行构建。
 
+> 环境准备只安装 python / node / npm，**不包含 opencode**。没装 opencode 时，对话页会明确提示“演示回声”；先在终端装好 opencode 并重启应用。
+
 1. 安装 APK，首次打开等待运行环境准备（自动安装 python / node / npm，需要联网）；
 2. 按 `opencode` 的方式配置模型服务：API Key，或本地 Ollama；
 3. 在「对话」里输入任务；底部切换到「终端」就是完整的 Termux；

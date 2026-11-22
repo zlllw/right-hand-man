@@ -22,7 +22,12 @@ import java.util.concurrent.TimeUnit
  */
 class BridgeProcess(private val context: Context) {
 
-    data class Status(val running: Boolean, val port: Int?, val message: String)
+    data class Status(
+        val running: Boolean,
+        val port: Int?,
+        val message: String,
+        val adapter: String? = null
+    )
 
     private val prefix = File(TermuxConstants.TERMUX_PREFIX_DIR_PATH)
     private val home = File(TermuxConstants.TERMUX_HOME_DIR_PATH)
@@ -39,14 +44,18 @@ class BridgeProcess(private val context: Context) {
     @Volatile
     private var process: Process? = null
 
+    @Volatile
+    private var currentAdapter: String? = null
+
     /** 只读状态，不会拉起进程。 */
     fun status(): Status {
-        val port = readPort() ?: return Status(false, null, "Bridge 未启动")
+        val adapter = currentAdapter ?: adapterFromLog()
+        val port = readPort() ?: return Status(false, null, "Bridge 未启动", adapter)
         val failure = healthFailure(port)
         return if (failure == null) {
-            Status(true, port, "Bridge 就绪：127.0.0.1:$port")
+            Status(true, port, "Bridge 就绪：127.0.0.1:$port", adapter)
         } else {
-            Status(false, port, "Bridge 端口 $port 无响应：$failure")
+            Status(false, port, "Bridge 端口 $port 无响应：$failure", adapter)
         }
     }
 
@@ -57,13 +66,14 @@ class BridgeProcess(private val context: Context) {
     @Synchronized
     fun ensureStarted(adapter: String = defaultAdapter()): Status {
         status().takeIf { it.running }?.let { return it }
+        currentAdapter = adapter
 
         val python = File(prefix, "bin/python3")
         if (!python.canExecute()) {
-            return Status(false, null, "运行环境未就绪：缺少 python3")
+            return Status(false, null, "运行环境未就绪：缺少 python3", adapter)
         }
         if (!deployBridge()) {
-            return Status(false, null, "无法解出 Bridge 脚本到 $appDir")
+            return Status(false, null, "无法解出 Bridge 脚本到 $appDir", adapter)
         }
 
         portFile.delete()
@@ -83,17 +93,17 @@ class BridgeProcess(private val context: Context) {
                 .start()
             val port = awaitPort(PORT_WAIT_MS)
             if (port == null) {
-                Status(false, null, "Bridge 启动超时，详见 ${logFile.name}")
+                Status(false, null, "Bridge 启动超时，详见 ${logFile.name}", adapter)
             } else {
                 val failure = healthFailure(port)
                 if (failure == null) {
-                    Status(true, port, "Bridge 就绪：127.0.0.1:$port")
+                    Status(true, port, "Bridge 就绪：127.0.0.1:$port", adapter)
                 } else {
-                    Status(false, port, "Bridge 已启动但 /health 不可用：$failure")
+                    Status(false, port, "Bridge 已启动但 /health 不可用：$failure", adapter)
                 }
             }
         } catch (error: Exception) {
-            Status(false, null, "Bridge 启动失败：${error.message}")
+            Status(false, null, "Bridge 启动失败：${error.message}", adapter)
         }
     }
 
@@ -103,8 +113,16 @@ class BridgeProcess(private val context: Context) {
             runCatching { it.waitFor(3, TimeUnit.SECONDS) }
         }
         process = null
+        currentAdapter = null
         portFile.delete()
     }
+
+    /** 冷启动复用已有 Bridge 时，从日志恢复适配器名，供 UI 判断是否为演示回声。 */
+    private fun adapterFromLog(): String? = runCatching {
+        logFile.takeIf { it.isFile }?.readLines()
+            ?.lastOrNull { it.contains("(adapter=") }
+            ?.let { Regex("\\(adapter=([A-Za-z0-9_-]+)\\)").find(it)?.groupValues?.get(1) }
+    }.getOrNull()
 
     private fun deployBridge(): Boolean = runCatching {
         appDir.mkdirs()

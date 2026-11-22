@@ -90,8 +90,14 @@ fun DualEntryScaffold(
     val context = androidx.compose.ui.platform.LocalContext.current
     var drawerOpen by remember { mutableStateOf(false) }
 
-    // 探活通过（running）才算连上；否则把真实原因原样给用户，不含糊成"未连接"
-    val bridgeNotice = if (bridgeState.running) null else bridgeState.message
+    // 探活通过（running）才算连上；否则把真实原因原样给用户，不含糊成"未连接"。
+    // fake 适配器意味着没找到 opencode，必须明确告诉用户这是演示回声。
+    val bridgeNotice = when {
+        !bridgeState.running -> bridgeState.message
+        bridgeState.adapter == "fake" ->
+            "未检测到 opencode：当前为演示回声，请在终端安装 opencode 并重启应用"
+        else -> null
+    }
 
     // 终端页整页恒黑（含状态栏、dock 周边与底部手势区），不跟随明暗主题
     val terminalPage = pagerState.currentPage == 1
