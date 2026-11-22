@@ -19,7 +19,7 @@ import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 
 import com.termux.R;
-import com.termux.app.TermuxActivity;
+import com.termux.app.TermuxTerminalHostActivity;
 import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
 import com.termux.shared.theme.NightMode;
 import com.termux.shared.theme.ThemeUtils;
@@ -29,12 +29,12 @@ import java.util.List;
 
 public class TermuxSessionsListViewController extends ArrayAdapter<TermuxSession> implements AdapterView.OnItemClickListener, AdapterView.OnItemLongClickListener {
 
-    final TermuxActivity mActivity;
+    final TermuxTerminalHostActivity mActivity;
 
     final StyleSpan boldSpan = new StyleSpan(Typeface.BOLD);
     final StyleSpan italicSpan = new StyleSpan(Typeface.ITALIC);
 
-    public TermuxSessionsListViewController(TermuxActivity activity, List<TermuxSession> sessionList) {
+    public TermuxSessionsListViewController(TermuxTerminalHostActivity activity, List<TermuxSession> sessionList) {
         super(activity.getApplicationContext(), R.layout.item_terminal_sessions_list, sessionList);
         this.mActivity = activity;
     }

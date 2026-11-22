@@ -1,17 +1,23 @@
 package com.termux.app
 
-import android.content.Intent
+import android.content.Context
 import android.os.Bundle
+import android.view.View
+import android.view.ViewTreeObserver
+import android.view.inputmethod.InputMethodManager
 import androidx.activity.compose.setContent
-import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
+import com.termux.R
+import com.termux.app.terminal.TermuxActivityRootView
 import com.termux.app.bridge.BridgeProcess
 import com.termux.app.bridge.BridgeViewModel
 import com.termux.app.chat.ChatViewModel
@@ -36,18 +42,36 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
  * 3. Bridge：拉起结果以 `/health` 探活为准；一旦端口可用就把聊天页的 Repository
  *    从 [FakeChatRepository] 换成 [HttpChatRepository]，此后每条消息都真的走 Bridge。
  *
- * 终端 tab 目前是占位——终端视图必须复用 [TermuxActivity] 的初始化，
- * 抽成可复用宿主后才能通过 `AndroidView` 嵌进来，见 `ui/TerminalScreen.kt` 的说明。
+ * 终端 tab 直接复用 [TermuxTerminalHostActivity] 抽出的终端根视图：
+ * 与独立 TermuxActivity 共享同一套服务绑定、会话、键盘和会话抽屉，
+ * 只是把它嵌入 Compose 的 `AndroidView` 而不是铺满整个 Activity。
  */
-class MainActivity : AppCompatActivity() {
+class MainActivity : TermuxTerminalHostActivity() {
 
     private lateinit var chatViewModel: ChatViewModel
     private lateinit var envViewModel: EnvViewModel
     private lateinit var bridgeViewModel: BridgeViewModel
+    private lateinit var terminalRoot: TermuxActivityRootView
+
+    private var terminalFocused by mutableStateOf(false)
+    private var terminalPageSelected by mutableStateOf(false)
+    private val terminalFocusListener =
+        ViewTreeObserver.OnGlobalFocusChangeListener { _, newFocus ->
+            terminalFocused = newFocus?.id == R.id.terminal_view
+        }
+
+    override fun isTerminalRootEmbedded(): Boolean = true
+
+    override fun onBootstrapReady() {
+        if (::envViewModel.isInitialized) envViewModel.refresh()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         RhmAppearance.init(applicationContext)
+
+        terminalRoot = getTermuxActivityRootView()
+        terminalRoot.viewTreeObserver.addOnGlobalFocusChangeListener(terminalFocusListener)
 
         // 冷启动时端口文件可能已经存在（Bridge 没随 app 退出），先用 HTTP 起步
         val endpoint = BridgeLocator.baseUrlOrNull()
@@ -62,7 +86,6 @@ class MainActivity : AppCompatActivity() {
 
         envViewModel = EnvViewModel(EnvPreparer(applicationContext))
         bridgeViewModel = BridgeViewModel(BridgeProcess(applicationContext))
-        TermuxInstaller.setupBootstrapIfNeeded(this) { envViewModel.refresh() }
 
         setContent {
             val mode by RhmAppearance.mode.collectAsState()
@@ -72,11 +95,12 @@ class MainActivity : AppCompatActivity() {
                 AppearanceMode.LIGHT -> false
                 AppearanceMode.DARK -> true
             }
-            // 系统栏图标明暗跟随应用主题（edge-to-edge 下必须手动设置）
-            LaunchedEffect(dark) {
+            // 系统栏图标明暗跟随应用主题；终端页背景恒黑，因此图标恒浅色
+            LaunchedEffect(dark, terminalPageSelected) {
+                val lightSystemBars = dark || terminalPageSelected
                 WindowCompat.getInsetsController(window, window.decorView).apply {
-                    isAppearanceLightStatusBars = !dark
-                    isAppearanceLightNavigationBars = !dark
+                    isAppearanceLightStatusBars = !lightSystemBars
+                    isAppearanceLightNavigationBars = !lightSystemBars
                 }
             }
             RhmTheme(mode = mode, preset = preset) {
@@ -111,12 +135,29 @@ class MainActivity : AppCompatActivity() {
                         envState = envState,
                         bridgeState = bridgeState,
                         onPrepareEnv = envViewModel::prepare,
-                        onOpenTerminal = {
-                            startActivity(Intent(this, TermuxActivity::class.java))
-                        }
+                        terminalRoot = terminalRoot,
+                        terminalFocused = terminalFocused,
+                        onTerminalPageChanged = ::onTerminalPageChanged
                     )
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        if (::terminalRoot.isInitialized) {
+            terminalRoot.viewTreeObserver.removeOnGlobalFocusChangeListener(terminalFocusListener)
+        }
+        super.onDestroy()
+    }
+
+    /** 终端页整页恒黑；离开时收起键盘并清焦点，避免回到对话页后终端继续吃输入。 */
+    private fun onTerminalPageChanged(visible: Boolean) {
+        terminalPageSelected = visible
+        if (visible) return
+        val terminalView: View = terminalRoot.findViewById(R.id.terminal_view) ?: return
+        terminalView.clearFocus()
+        val inputMethodManager = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        inputMethodManager.hideSoftInputFromWindow(terminalView.windowToken, 0)
     }
 }

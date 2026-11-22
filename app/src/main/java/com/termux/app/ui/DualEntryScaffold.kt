@@ -1,6 +1,7 @@
 package com.termux.app.ui
 
 import android.graphics.BitmapFactory
+import android.view.View
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -33,6 +34,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -77,7 +79,9 @@ fun DualEntryScaffold(
     envState: EnvViewModel.UiState,
     bridgeState: BridgeViewModel.UiState,
     onPrepareEnv: () -> Unit,
-    onOpenTerminal: () -> Unit
+    terminalRoot: View?,
+    terminalFocused: Boolean,
+    onTerminalPageChanged: (Boolean) -> Unit
 ) {
     val state by viewModel.state.collectAsState()
     val pagerState = rememberPagerState(pageCount = { PAGE_COUNT })
@@ -89,16 +93,26 @@ fun DualEntryScaffold(
     // 探活通过（running）才算连上；否则把真实原因原样给用户，不含糊成"未连接"
     val bridgeNotice = if (bridgeState.running) null else bridgeState.message
 
+    // 终端页整页恒黑（含状态栏、dock 周边与底部手势区），不跟随明暗主题
+    val terminalPage = pagerState.currentPage == 1
+
+    // 离开终端页时由 Activity 收起键盘、清掉终端焦点
+    LaunchedEffect(pagerState.currentPage) {
+        onTerminalPageChanged(terminalPage)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(colors.background)
+            .background(if (terminalPage) Color.Black else colors.background)
             .windowInsetsPadding(WindowInsets.statusBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
     ) {
         HorizontalPager(
             state = pagerState,
-            // 聊天页可左滑切终端；抽屉打开时整体禁用，避免抽屉里的手势漏到分页器
-            userScrollEnabled = !drawerOpen,
+            // 抽屉打开或终端吃焦点时禁用横向滑动，避免手势冲突
+            userScrollEnabled = !drawerOpen && !terminalFocused,
+            // 两个页面都保持组合：终端根视图只能有一个父容器，反复拆装会丢会话状态
+            beyondViewportPageCount = 1,
             modifier = Modifier.weight(1f)
         ) { page ->
             when (page) {
@@ -129,20 +143,29 @@ fun DualEntryScaffold(
                         onAttachExisting = viewModel::attachExisting
                     )
                 }
-                else -> TerminalScreen(onOpenTerminal = onOpenTerminal)
+                else -> TerminalScreen(terminalRoot = terminalRoot)
             }
         }
         RhmDock(
             selectedPage = pagerState.currentPage,
+            terminalMode = terminalPage,
             onSelect = { scope.launch { pagerState.animateScrollToPage(it) } }
         )
     }
 }
 
 @Composable
-private fun RhmDock(selectedPage: Int, onSelect: (Int) -> Unit) {
+private fun RhmDock(selectedPage: Int, terminalMode: Boolean, onSelect: (Int) -> Unit) {
     val colors = LocalRhmColors.current
     val shape = RoundedCornerShape(22.dp)
+    // 终端页整页黑底，dock 换成深色玻璃，避免底部看起来还是一块白条
+    val dockBg = if (terminalMode) Color(0xF0111214) else colors.glassBg
+    val dockLine = if (terminalMode) Color(0x22FFFFFF) else colors.glassLine
+    val divider = if (terminalMode) Color(0x22FFFFFF) else colors.line
+    val brandTint = if (terminalMode) Color(0xA6FFFFFF) else colors.faint
+    val activeBg = if (terminalMode) Color(0x336EA8FF) else colors.accentSoft
+    val activeTint = if (terminalMode) Color(0xFF6EA8FF) else colors.accent
+    val idleTint = if (terminalMode) Color(0xA6FFFFFF) else colors.muted
     Box(
         modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 10.dp),
         contentAlignment = Alignment.Center
@@ -150,33 +173,40 @@ private fun RhmDock(selectedPage: Int, onSelect: (Int) -> Unit) {
         Row(
             modifier = Modifier
                 .clip(shape)
-                .background(colors.glassBg)
-                .border(1.dp, colors.glassLine, shape)
+                .background(dockBg)
+                .border(1.dp, dockLine, shape)
                 .padding(5.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Box(modifier = Modifier.size(width = 54.dp, height = 44.dp), contentAlignment = Alignment.Center) {
                 DockMark(
-                    tint = colors.faint,
+                    tint = brandTint,
                     modifier = Modifier.width(38.dp).height(22.dp)
                 )
             }
-            Box(modifier = Modifier.width(1.dp).height(22.dp).background(colors.line))
-            DockItem(RhmIcons.Chat, "对话", selectedPage == 0) { onSelect(0) }
-            DockItem(RhmIcons.Terminal, "终端", selectedPage == 1) { onSelect(1) }
+            Box(modifier = Modifier.width(1.dp).height(22.dp).background(divider))
+            DockItem(RhmIcons.Chat, "对话", selectedPage == 0, activeTint, idleTint, activeBg) { onSelect(0) }
+            DockItem(RhmIcons.Terminal, "终端", selectedPage == 1, activeTint, idleTint, activeBg) { onSelect(1) }
         }
     }
 }
 
 @Composable
-private fun DockItem(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
-    val colors = LocalRhmColors.current
+private fun DockItem(
+    icon: ImageVector,
+    label: String,
+    selected: Boolean,
+    activeTint: Color,
+    idleTint: Color,
+    activeBg: Color,
+    onClick: () -> Unit
+) {
     Box(
         modifier = Modifier
             .size(width = 54.dp, height = 44.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(if (selected) colors.accentSoft else Color.Transparent)
+            .background(if (selected) activeBg else Color.Transparent)
             .clickable(onClick = onClick)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center
@@ -184,7 +214,7 @@ private fun DockItem(icon: ImageVector, label: String, selected: Boolean, onClic
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = if (selected) colors.accent else colors.muted,
+            tint = if (selected) activeTint else idleTint,
             modifier = Modifier.size(20.dp)
         )
     }
